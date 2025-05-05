@@ -1,0 +1,83 @@
+# Entorno virtual
+venv/
+.env/
+config/secrets.env
+config/.env
+
+# Bytecode y cachés de Python
+__pycache__/
+*.py[cod]
+*.pdb
+
+# Archivos de configuración locales y base de datos
+*.db
+*.sqlite3
+*.log
+instance/
+.env.*
+data/*.db
+
+# Archivos de datos exportados
+*.csv
+*.json
+
+# Carpeta de exportación de resultados
+/export/
+
+# Archivos temporales
+*.swp
+*.bak
+*.tmp
+*.old
+
+# Pruebas y cobertura
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.pytest_cache/
+
+# IDEs
+.vscode/
+.idea/
+
+# Archivos de frontend compilados
+*.map
+*.bundle.js
+*.min.js
+*.min.css
+
+# Otros archivos específicos
+Thumbs.db
+
+# Jupyter Notebooks checkpoints
+.ipynb_checkpoints/
+
+# Dependencias de Node.js
+node_modules/
+
+# Archivos y configuraciones de Docker
+docker-compose.yml
+Dockerfile
+
+# Archivos de log
+logs/
+
+# Archivos específicos de macOS
+
+# Archivos generados por npm
+package-lock.json
+
+# Archivos específicos del sistema operativo
+.DS_Store
+
+# Parches
+*.patch
+
+# Requisitos específicos para macOS
+requirements.macos.txt

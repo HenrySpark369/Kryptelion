@@ -1,0 +1,69 @@
+# --- Web framework ---
+Flask
+Flask-Cors
+flask-sse
+
+# --- Binance API y WebSockets ---
+python-binance
+websocket-client
+aiohttp
+
+# --- Manejo de datos ---
+pandas
+numpy
+sqlalchemy
+psycopg2-binary  # PostgreSQL
+python-dotenv
+
+# --- Análisis técnico ---
+ta
+
+# --- Machine Learning & IA ---
+scikit-learn
+joblib
+
+# --- TensorFlow + Metal para Mac M1/M2 ---
+tensorflow-macos
+tensorflow-metal
+
+# --- Visualización y backtesting opcional ---
+matplotlib
+seaborn
+
+# --- Pruebas ---
+pytest
+
+# --- Utilidades ---
+requests
+# --- Web framework ---
+Flask==3.1.0
+Flask-Cors==5.0.1
+flask-sse==1.0.0
+
+# --- Binance API y WebSockets ---
+python-binance==1.0.28
+aiohttp==3.8.6
+
+# --- Manejo de datos ---
+pandas==2.2.1
+numpy==1.26.4
+sqlalchemy==2.0.40
+psycopg2-binary==2.9.9
+python-dotenv==1.0.1
+
+# --- Análisis técnico ---
+ta==0.11.0
+
+# --- Machine Learning ---
+scikit-learn==1.4.1
+joblib==1.4.2
+
+# --- Visualización y backtesting ---
+matplotlib==3.8.3
+seaborn==0.13.2
+
+# --- Pruebas ---
+pytest==8.1.1
+
+# --- Utilidades ---
+requests==2.31.0
