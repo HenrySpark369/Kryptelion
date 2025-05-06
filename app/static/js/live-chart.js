@@ -208,8 +208,13 @@ async function cargarHistoricoInicial() {
     try {
         const symbol = SELECTOR_SYMBOL.value || "BTCUSDT";
         const interval = SELECTOR_INTERVAL.value || "1m";
-        const res = await fetch(`/historico?symbol=${symbol}&interval=${interval}&limit=100`);
-        const klines = await res.json();
+        const now = Date.now();
+        const unDia = 24 * 60 * 60 * 1000;
+        const startTime = now - unDia;
+        const endTime = now;
+        const res = await fetch(`/historico?symbol=${symbol}&interval=${interval}&limit=100&startTime=${startTime}&endTime=${endTime}`);
+        const respuesta = await res.json();
+        const klines = respuesta.klines || [];
 
         const labels = [];
         const precios = [];
@@ -277,7 +282,7 @@ document.getElementById("cargarHistoricoBtn")?.addEventListener("click", () => {
 });
 
 // Si quieres cargar automáticamente al inicio, descomenta:
-// cargarHistoricoInicial().then(() => { conectarWebSocket(); });
+cargarHistoricoInicial().then(() => { conectarWebSocket(); });
 
 // Función para exportar señales de cruce a JSON
 function exportarJSON(cruceSignals) {
