@@ -2,7 +2,15 @@
 const SELECTOR_SYMBOL = document.getElementById("selectorSymbol");
 const SELECTOR_INTERVAL = document.getElementById("selectorInterval");
 import { DateTime } from 'luxon';
-Chart.register(Chart.DateAdapter, DateTime);
+import 'chartjs-adapter-luxon';
+Chart.register(window.ChartjsAdapterLuxon);
+
+import { conectarWebSocket } from './ws-handler.js';
+import { actualizarChart } from './grafico_utils.js';
+import { actualizarSMA } from './indicadores.js';
+import { onMessageHandler } from './procesador_kline.js';
+import { analizarEstrategiaBackend } from './estrategias.js';
+import { limpiarGrafico } from './session_utils.js';
 
 const cruceSignals = [];
 
@@ -133,88 +141,22 @@ const config = {
 
 const chart = new Chart(ctx, config);
 
-function actualizarChart(t, c, v, cerrado) {
-    const data = chart.data;
-    if (cerrado) {
-        data.labels.push(t);
-        data.datasets[0].data.push(c);
-        data.datasets[1].data.push(v);
-    } else {
-        const lastIdx = data.labels.length - 1;
-        if (lastIdx >= 0) {
-            data.labels[lastIdx] = t;
-            data.datasets[0].data[lastIdx] = c;
-            data.datasets[1].data[lastIdx] = v;
-        } else {
-            data.labels.push(t);
-            data.datasets[0].data.push(c);
-            data.datasets[1].data.push(v);
-        }
-    }
-
-    if (data.labels.length > 100) {
-        data.labels.shift();
-        data.datasets[0].data.shift();
-        data.datasets[1].data.shift();
-    }
-}
-
-function calcularSMA(datos, ventana) {
-    const slice = datos.slice(-ventana);
-    const suma = slice.reduce((a, b) => a + b, 0);
-    return suma / ventana;
-}
-
-function actualizarSMA(cerrado) {
-    const precios = chart.data.datasets[0].data;
-    const smaData = chart.data.datasets[2].data;
-    const smaWindow = 10;
-
-    if (precios.length >= smaWindow) {
-        const sma = calcularSMA(precios, smaWindow);
-        if (cerrado) {
-            smaData.push(sma);
-        } else {
-            if (smaData.length > 0) {
-                smaData[smaData.length - 1] = sma;
-            } else {
-                smaData.push(sma);
-            }
-        }
-        if (smaData.length > 100) {
-            smaData.shift();
-        }
-    } else {
-        if (cerrado) smaData.push(null);
-        else if (smaData.length > 0) smaData[smaData.length - 1] = null;
-        else smaData.push(null);
-    }
-}
-
-function onMessageHandler(event) {
-    const kline = JSON.parse(event.data);
-    const t = new Date(kline.t);
-    const c = parseFloat(kline.c);
-    const v = parseFloat(kline.v);
-
-    actualizarChart(t, c, v, kline.x);
-    actualizarSMA(kline.x);
-    chart.update();
-    analizarEstrategiaBackend();
-}
-
 // Carga el histórico inicial desde el backend antes de conectar el WebSocket
 async function cargarHistoricoInicial() {
     try {
         const symbol = SELECTOR_SYMBOL.value || "BTCUSDT";
         const interval = SELECTOR_INTERVAL.value || "1m";
         const now = Date.now();
-        const unDia = 24 * 60 * 60 * 1000;
-        const startTime = now - unDia;
+        const dias = 3;
+        const startTime = now - dias * 24 * 60 * 60 * 1000;
         const endTime = now;
         const res = await fetch(`/historico?symbol=${symbol}&interval=${interval}&limit=100&startTime=${startTime}&endTime=${endTime}`);
         const respuesta = await res.json();
         const klines = respuesta.klines || [];
+        if (klines.length === 0) {
+            alert("No hay datos disponibles para el símbolo e intervalo seleccionados.");
+            return;
+        }
 
         const labels = [];
         const precios = [];
@@ -229,9 +171,12 @@ async function cargarHistoricoInicial() {
             labels.push(t);
             precios.push(c);
             volumenes.push(v);
-
+            // Se asume que la función modularizada de SMA se usará en otro lugar
             if (i + 1 >= smaWindow) {
-                const sma = calcularSMA(precios.slice(i + 1 - smaWindow, i + 1), smaWindow);
+                // calcularSMA está modularizada, pero aquí se puede importar si se requiere
+                // Si necesitas calcular SMA aquí, importa calcularSMA desde el módulo adecuado
+                // Por ahora, se deja el cálculo directo para mantener la funcionalidad
+                const sma = precios.slice(i + 1 - smaWindow, i + 1).reduce((a, b) => a + b, 0) / smaWindow;
                 smaData.push(sma);
             } else {
                 smaData.push(null);
@@ -262,17 +207,6 @@ async function cargarHistoricoInicial() {
     }
 }
 
-function conectarWebSocket() {
-    const socket = new WebSocket(WS_URL);
-
-    socket.onopen = () => console.log("✅ WebSocket conectado");
-    socket.onmessage = onMessageHandler;
-    socket.onerror = err => console.error("❌ WebSocket error:", err);
-    socket.onclose = () => {
-        console.warn("🔌 WebSocket cerrado. Reintentando en 5 segundos...");
-        setTimeout(conectarWebSocket, 5000);
-    };
-}
 
 // Permite al usuario cargar el histórico y conectar WebSocket tras seleccionar símbolo/intervalo
 document.getElementById("cargarHistoricoBtn")?.addEventListener("click", () => {
@@ -392,155 +326,6 @@ function obtenerColorAnotacion(tipo) {
     // Devuelve el valor actual del input, o el color por defecto si no existe
     return colorInput ? colorInput.value : (tipo === "buy" ? "green" : "red");
 }
-// Recopila las últimas 50 velas y las envía al backend para análisis de estrategia
-async function analizarEstrategiaBackend() {
-    const klines = [];
-    const labels = chart.data.labels;
-    const precios = chart.data.datasets[0].data;
-    const volumenes = chart.data.datasets[1].data;
-
-    for (let i = 0; i < labels.length; i++) {
-        klines.push({
-            t: new Date(labels[i]).toISOString(),
-            c: precios[i],
-            v: volumenes[i] || 0
-        });
-    }
-
-    try {
-        const res = await fetch("/analizar_estrategia", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ klines: klines })
-        });
-        const data = await res.json();
-        console.log("Resultado del análisis:", data);
-
-        if (config.options.plugins.annotation.annotations.length > 20) {
-            config.options.plugins.annotation.annotations.shift();
-        }
-
-        // Para órdenes simuladas, usar el símbolo actual seleccionado
-        const symbol = SELECTOR_SYMBOL.value || "BTCUSDT";
-        if (data.signal === "buy") {
-            const t = new Date(data.timestamp);
-            const currPrice = data.close;
-            const annotation = {
-                type: 'line',
-                mode: 'vertical',
-                scaleID: 'x',
-                value: t,
-                borderColor: obtenerColorAnotacion("buy"),
-                borderWidth: 2,
-                label: {
-                    enabled: true,
-                    content: `Compra\nSMA: ${data.sma.toFixed(2)}`,
-                    position: 'top'
-                }
-            };
-            config.options.plugins.annotation.annotations.push(annotation);
-            cruceSignals.push({
-                timestamp: t.toISOString(),
-                tipo: 'compra',
-                precio: currPrice,
-                sma: data.sma
-            });
-            fetch("/exportar_cruces", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    cruces: [cruceSignals[cruceSignals.length - 1]],
-                    tipo: "json"
-                })
-            })
-            .then(res => res.json())
-            .then(data => {
-                console.log("📤 Cruce exportado automáticamente:", data);
-            })
-            .catch(err => {
-                console.error("❌ Error al exportar automáticamente el cruce:", err);
-            });
-            fetch("/orden", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    tipo: "market",
-                    symbol: symbol,
-                    side: "BUY",
-                    quantity: 0.001
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                alert("✅ Orden de COMPRA enviada al backend");
-                console.log(data);
-                agregarOrdenAHistorial(data);
-                registrarOrden("BUY");
-            });
-        } else if (data.signal === "sell") {
-            const t = new Date(data.timestamp);
-            const currPrice = data.close;
-            const annotation = {
-                type: 'line',
-                mode: 'vertical',
-                scaleID: 'x',
-                value: t,
-                borderColor: obtenerColorAnotacion("sell"),
-                borderWidth: 2,
-                label: {
-                    enabled: true,
-                    content: `Venta\nSMA: ${data.sma.toFixed(2)}`,
-                    position: 'top'
-                }
-            };
-            config.options.plugins.annotation.annotations.push(annotation);
-            cruceSignals.push({
-                timestamp: t.toISOString(),
-                tipo: 'venta',
-                precio: currPrice,
-                sma: data.sma
-            });
-            fetch("/exportar_cruces", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    cruces: [cruceSignals[cruceSignals.length - 1]],
-                    tipo: "json"
-                })
-            })
-            .then(res => res.json())
-            .then(data => {
-                console.log("📤 Cruce exportado automáticamente:", data);
-            })
-            .catch(err => {
-                console.error("❌ Error al exportar automáticamente el cruce:", err);
-            });
-            fetch("/orden", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    tipo: "market",
-                    symbol: symbol,
-                    side: "SELL",
-                    quantity: 0.001
-                })
-            })
-            .then(response => response.json())
-            .then(data => {
-                alert("✅ Orden de VENTA enviada al backend");
-                console.log(data);
-                agregarOrdenAHistorial(data);
-                registrarOrden("SELL");
-            });
-        }
-    } catch (error) {
-        console.error("Error al analizar estrategia:", error);
-    }
-}
 // Observa cambios en el input de color y actualiza anotaciones existentes
 function actualizarColoresAnotaciones() {
     const compraColor = obtenerColorAnotacion("buy");
@@ -594,27 +379,5 @@ if (modoDebug) {
         console.log("🔁 Modo debug: señal simulada", tipo);
     }, 10000);
 }
-// --- Función para limpiar el gráfico (datos y anotaciones) ---
-function limpiarGrafico() {
-    chart.data.labels = [];
-    chart.data.datasets.forEach(dataset => {
-        dataset.data = [];
-    });
-    if (config.options.plugins?.annotation?.annotations) {
-        config.options.plugins.annotation.annotations = [];
-    }
-    cruceSignals.length = 0;
-    contadorCompra = 0;
-    contadorVenta = 0;
-    localStorage.setItem("contadorCompra", "0");
-    localStorage.setItem("contadorVenta", "0");
-    actualizarResumen();
-    // Limpiar la tabla de historial de órdenes si existe
-    const tabla = document.getElementById("tabla-ordenes");
-    if (tabla && tabla.rows.length > 1) {
-        while (tabla.rows.length > 1) {
-            tabla.deleteRow(1);
-        }
-    }
-    chart.update();
-}
+// Exporta onMessageHandler para uso en otros archivos JS si se desea
+export { onMessageHandler };
