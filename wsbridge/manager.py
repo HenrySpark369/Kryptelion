@@ -7,12 +7,14 @@ class WebSocketManager:
 
     def registrar_cliente(self, websocket):
         self.clientes.add(websocket)
-        print(f"[Manager] Cliente registrado: {websocket.remote_address}")
-        websocket.on_close = lambda ws: self.eliminar_cliente(ws)
+        addr = getattr(websocket, "remote_address", "desconocido")
+        print(f"[Manager] Cliente registrado: {addr}")
+        # La gestión del cierre se realiza desde el servidor principal.
 
     def eliminar_cliente(self, websocket):
         self.clientes.discard(websocket)
-        print(f"[Manager] Cliente eliminado: {websocket.remote_address}")
+        addr = getattr(websocket, "remote_address", "desconocido")
+        print(f"[Manager] Cliente eliminado: {addr}")
 
     async def enviar_a_todos(self, kline):
         mensaje = json.dumps(kline)
@@ -23,13 +25,10 @@ class WebSocketManager:
             ])
 
     async def _safe_send(self, cliente, mensaje):
-        if hasattr(cliente, "closed") and await cliente.closed:
-            self.eliminar_cliente(cliente)
-            return
         try:
             await cliente.send(mensaje)
         except Exception as e:
-            print(f"[Manager] Error enviando a {cliente.remote_address}: {e}")
+            print(f"[Manager] Error enviando a {getattr(cliente, 'remote_address', 'desconocido')}: {e}")
             self.eliminar_cliente(cliente)
 
     def numero_clientes(self):
