@@ -250,6 +250,8 @@ def historico():
     start_time = request.args.get("startTime", type=int)
     end_time = request.args.get("endTime", type=int)
 
+    logging.warning(f"📡 /historico llamado con: symbol={symbol}, interval={interval}, limit={limit}, start_time={start_time}, end_time={end_time}")
+
     try:
         logging.info(f"/historico solicitado con symbol={symbol}, interval={interval}, limit={limit}, startTime={start_time}, endTime={end_time}")
         repo = HistoricoRepository()
@@ -261,7 +263,9 @@ def historico():
             return jsonify({"error": "Formato inválido de los datos históricos"}), 500
 
         if not klines:
-            return jsonify({"error": f"No hay datos disponibles para {symbol} en {interval}"}), 404
+            logging.warning("❌ No se encontraron datos históricos. Revisa si la tabla existe o si los filtros excluyen todos los datos.")
+            logging.warning(f"No se encontraron datos históricos para {symbol} en {interval} con los parámetros proporcionados.")
+            return jsonify({"klines": [], "mensaje": f"No se encontraron datos para {symbol} en {interval}."})
 
         resultado = [{
             "t": int(k["t"]),
@@ -270,7 +274,7 @@ def historico():
             "x": k.get("x", True)
         } for k in klines]
 
-        return jsonify(resultado)
+        return jsonify({"klines": resultado})
     except Exception as e:
         logging.error(f"Error en /historico: {str(e)}")
         return jsonify({"error": str(e)}), 500
