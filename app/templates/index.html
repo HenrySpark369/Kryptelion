@@ -70,30 +70,6 @@
         <option value="venta">Venta</option>
     </select>
     <button class="btn btn-primary" id="descargarCSVBackend">Descargar CSV desde backend</button>
-    // --- Descargar CSV desde backend con nombre dinámico y filtro activo ---
-    document.getElementById("descargarCSVBackend").addEventListener("click", async function() {
-        try {
-            const res = await fetch("/descargar_csv_backend");
-            if (!res.ok) throw new Error("Error al descargar CSV del backend");
-            const blob = await res.blob();
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.setAttribute("href", url);
-            // Nombre dinámico basado en el título de la pestaña y filtro activo
-            const titulo = document.title.replace(/\s+/g, "_").replace(/[^\w\-]/g, "");
-            const filtro = document.getElementById("filtroTipo").value;
-            const sufijoFiltro = filtro ? `_${filtro}` : "";
-            link.setAttribute("download", `cruces_${titulo}${sufijoFiltro}.csv`);
-            link.style.visibility = "hidden";
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-        } catch (err) {
-            alert("No se pudo descargar el CSV desde el backend.");
-            console.error(err);
-        }
-    });
 
     <label><input type="checkbox" id="toggleCruces" checked> Mostrar señales en gráfico</label>
     <br>
@@ -203,8 +179,13 @@
         }
 
         function iniciarStream(symbol, interval) {
-            if (socket && socket.readyState === WebSocket.OPEN) {
-                socket.close();
+            let pingInterval;
+            // Cerrar conexión WebSocket anterior de forma segura si existe
+            if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
+                if (pingInterval) clearInterval(pingInterval);
+                socket.onclose = null;
+                socket.onerror = null;
+                socket.close(1000, "Reconexión solicitada");
             }
 
             limpiarGrafico();
@@ -213,7 +194,11 @@
             socket = new WebSocket(url);
 
             socket.onmessage = function(event) {
-                const kline = JSON.parse(event.data);
+                // Opcional: ignorar mensajes tipo "pong"
+                const msg = JSON.parse(event.data);
+                if (msg.type === "pong") return;
+
+                const kline = msg;
                 const t = new Date(kline.t);
                 const c = parseFloat(kline.c);
 
@@ -229,15 +214,24 @@
             };
 
             socket.onerror = function(err) {
+                if (pingInterval) clearInterval(pingInterval);
                 console.error("WebSocket error", err);
                 socket.close();
                 setTimeout(() => iniciarStream(symbol, interval), 1000);
             };
 
             socket.onclose = function() {
+                if (pingInterval) clearInterval(pingInterval);
                 console.warn("WebSocket cerrado. Reintentando...");
                 setTimeout(() => iniciarStream(symbol, interval), 1000);
             };
+
+            // Enviar un ping cada 20 segundos para mantener viva la conexión
+            pingInterval = setInterval(() => {
+                if (socket && socket.readyState === WebSocket.OPEN) {
+                    socket.send(JSON.stringify({ type: "ping" }));
+                }
+            }, 20000);
         }
 
         // Inicializar con valores por defecto
@@ -467,7 +461,9 @@ document.getElementById("cargarHistoricoBtn").addEventListener("click", () => {
 
     fetch(`/historico?symbol=${symbol}&interval=${interval}&limit=100`)
         .then(res => res.json())
-        .then(klines => {
+        .then(res => {
+            const klines = res.klines || [];
+            console.log("🔍 Estructura de klines:", klines);
             const labels = [];
             const precios = [];
 
@@ -537,6 +533,30 @@ function descargarCrucesFiltrados() {
     link.click();
     document.body.removeChild(link);
 }
+// --- Descargar CSV desde backend con nombre dinámico y filtro activo ---
+document.getElementById("descargarCSVBackend").addEventListener("click", async function() {
+    try {
+        const res = await fetch("/descargar_csv_backend");
+        if (!res.ok) throw new Error("Error al descargar CSV del backend");
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        // Nombre dinámico basado en el título de la pestaña y filtro activo
+        const titulo = document.title.replace(/\s+/g, "_").replace(/[^\w\-]/g, "");
+        const filtro = document.getElementById("filtroTipo").value;
+        const sufijoFiltro = filtro ? `_${filtro}` : "";
+        link.setAttribute("download", `cruces_${titulo}${sufijoFiltro}.csv`);
+        link.style.visibility = "hidden";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    } catch (err) {
+        alert("No se pudo descargar el CSV desde el backend.");
+        console.error(err);
+    }
+});
 </script>
     <!-- Spinner de carga -->
     <div id="spinnerCarga" class="position-fixed top-50 start-50 translate-middle d-none">
