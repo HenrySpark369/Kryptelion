@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Gráfico en Vivo - Tipo TradingView</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/luxon@3/build/global/luxon.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-financial"></script>
+  <style>
+    body { background-color: #121212; color: #fff; font-family: sans-serif; }
+    canvas { max-width: 100%; margin-bottom: 20px; }
+    #controls { margin-bottom: 20px; }
+    select, input, button { margin-right: 10px; }
+  </style>
+</head>
+<body>
+  <h2 id="chartTitle">TradingView Style Chart</h2>
+
+  <div id="controls">
+    <label for="symbolSelect">Símbolo:</label>
+    <select id="symbolSelect">
+      <option value="BTCUSDT" selected>BTCUSDT</option>
+      <option value="ETHUSDT">ETHUSDT</option>
+      <option value="BNBUSDT">BNBUSDT</option>
+    </select>
+
+    <label for="intervalSelect">Intervalo:</label>
+    <select id="intervalSelect">
+      <option value="1m">1m</option>
+      <option value="5m">5m</option>
+      <option value="15m" selected>15m</option>
+      <option value="1h">1h</option>
+      <option value="4h">4h</option>
+      <option value="1d">1d</option>
+    </select>
+
+    <label for="smaInput">SMA:</label>
+    <input type="number" id="smaInput" min="1" placeholder="Periodo">
+    <button id="addSmaBtn">Agregar SMA</button>
+    <button id="removeSmaBtn">Quitar SMA</button>
+    <select id="smaList"></select>
+  </div>
+
+  <canvas id="candlestickChart" width="800" height="400"></canvas>
+  <canvas id="volumeChart" width="800" height="150"></canvas>
+
+  <script src="{{ url_for('static', filename='js/live-chart-tradingview.js') }}"></script>
+</body>
+</html>
