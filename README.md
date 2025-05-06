@@ -80,6 +80,9 @@ o a: [http://localhost:5000/backtest-ui](http://localhost:5000/backtest-ui) para
 from data.updater import obtener_datos_historicos
 obtener_datos_historicos(["BTCUSDT"], ["1m", "5m"], "datos_historicos.db")
 ```
+```python
+# También puedes usar parámetros start_time y end_time opcionalmente
+```
 
 ### 3. Ejecutar un backtest vía API
 ```bash
@@ -155,14 +158,16 @@ Este proyecto aplica varios patrones de software:
 - `ml_predictor.py`: Modelo ML (placeholder para predicción).
 - Sistema extensible vía `estrategias/factory.py`.
 
+Las estrategias pueden integrarse con el sistema de difusión en tiempo real mediante `AsyncBroadcast`, para enviar señales directamente al frontend.
+
 ---
 
 ## 📊 Visualización
 
-- Gráfico de velas con indicadores
-- Gráfico de volumen debajo
-- WebSocket con actualización en vivo
-- Panel de backtesting vía `/backtest-ui`
+- Gráfico de velas con indicadores técnicos y volumen
+- Carga inicial optimizada usando rangos `startTime` y `endTime`
+- WebSocket en tiempo real con reconexión segura y soporte para múltiples clientes
+- Panel de backtesting interactivo vía `/backtest-ui`
 
 ---
 
@@ -183,6 +188,8 @@ Prueba de conexión WebSocket con Binance (usando Testnet o entorno real):
 ```bash
 python websocket/test_ws_connection.py
 ```
+
+También puedes probar el WebSocket local en `ws://localhost:8765/?symbol=BTCUSDT&interval=1m`, que transmite los datos en vivo recibidos desde Binance hacia múltiples clientes frontend mediante el servicio `wsbridge`.
 
 Asegúrate de definir en tu archivo `.env`:
 
