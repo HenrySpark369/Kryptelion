@@ -3,6 +3,7 @@ import json
 import threading
 import os
 import time
+import logging
 
 from wscliente.manejador_logs import get_logger
 ws_logger = get_logger("websocket")
@@ -34,12 +35,27 @@ class BinanceWebSocket:
 
     def on_message(self, ws, message):
         self.last_message_time = time.time()
-        data = json.loads(message)
-        kline = data.get("k", {})
-        if self.callback:
-            self.callback(kline)
-        for observer in self.observers:
-            observer(kline)
+        try:
+            data = json.loads(message)
+            kline = data.get("k", {})
+            if self.callback:
+                try:
+                    self.callback(kline)
+                except Exception as e:
+                    ws_logger.error(f"[WS-CALLBACK] Error en callback: {e}")
+            for observer in self.observers:
+                try:
+                    observer(kline)
+                except Exception as e:
+                    ws_logger.error(f"[WS-OBSERVER] Error en observer: {e}")
+            # Enviar a wsbridge después de notificar a los observers
+            try:
+                import asyncio
+                asyncio.run(self.enviar_a_wsbridge(kline))
+            except Exception as e:
+                ws_logger.error(f"[WS-BRIDGE] Error ejecutando asyncio.run: {e}")
+        except Exception as e:
+            ws_logger.error(f"[WS-MESSAGE] Error procesando mensaje: {e}")
 
     def seconds_since_last_message(self):
         if self.last_message_time is None:
@@ -120,37 +136,6 @@ class BinanceWebSocket:
             limpiar_logs_archivados()
             time.sleep(86400)  # cada 24 horas
 
-
-    async def _escuchar(self):
-        import websockets
-        import asyncio
-        reconnect_attempts = 0
-
-        while True:
-            try:
-                async with websockets.connect(self.ws_url) as ws:
-                    reconnect_attempts = 0
-                    ws_logger.info(f"WebSocket conectado a {self.ws_url}")
-                    while True:
-                        mensaje = await ws.recv()
-                        data = json.loads(mensaje)
-                        if self.callback:
-                            self.callback(data.get("k", {}))
-            except (websockets.ConnectionClosedError, ConnectionError) as e:
-                ws_logger.warning(f"Conexión cerrada inesperadamente: {e}")
-                reconnect_attempts += 1
-                if reconnect_attempts > 0:
-                    ws_logger.info(f"[WS-RECONNECT] {time.strftime('%Y-%m-%d %H:%M:%S')} | Intento #{reconnect_attempts} para {self.symbol.upper()} {self.interval}")
-                if reconnect_attempts >= self.max_reconnect_attempts:
-                    ws_logger.critical("Máximo número de reintentos alcanzado. Abortando WebSocket.")
-                    break
-                wait_time = self.base_reconnect_delay * (2 ** min(reconnect_attempts, self.max_reconnect_attempts))
-                ws_logger.info(f"[WS-RECONNECT] Esperando {wait_time} segundos antes de reconectar...")
-                await asyncio.sleep(wait_time)
-            except Exception as e:
-                ws_logger.exception(f"Error inesperado en WebSocket: {e}")
-                break
-
     def get_log_cleanup_count(self):
         return self.log_cleanup_count
 
@@ -174,3 +159,10 @@ def limpiar_logs_archivados(dias=180):
                     except Exception as e:
                         ws_logger.error(f"[WS-CLEANUP] Error al eliminar {archivo}: {e}")
     ws_logger.info(f"[WS-CLEANUP] {contador} archivos eliminados con más de {dias} días")
+    async def enviar_a_wsbridge(self, kline):
+        import websockets
+        try:
+            async with websockets.connect("ws://wsbridge:8765") as ws:
+                await ws.send(json.dumps(kline))
+        except Exception as e:
+            ws_logger.error(f"[WS-BRIDGE] Error al enviar a wsbridge: {e}")
