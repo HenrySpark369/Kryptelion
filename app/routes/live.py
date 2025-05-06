@@ -225,6 +225,19 @@ def bot_en_vivo():
 
 from core.repository.historico_repository import HistoricoRepository
 
+from flask import render_template
+
+@bp.route("/live")
+def vista_live_chart():
+    return render_template("index.html")
+
+# Redirigir la raíz "/" hacia la vista de gráfico en vivo "/live"
+from flask import redirect, url_for
+
+@bp.route("/")
+def redirigir_a_live():
+    return redirect(url_for("live.vista_live_chart"))
+
 @bp.route("/historico")
 def historico():
     """
@@ -258,14 +271,14 @@ def historico():
         klines = repo.obtener_klines_db(symbol, interval, limit, start_time, end_time)
         logging.info(f"klines obtenidos: {len(klines) if klines else 'None'}")
 
-        if not klines or not all(isinstance(k, dict) and all(key in k for key in ("t", "c", "v")) for k in klines):
-            logging.error(f"Formato inválido de klines: {klines}")
-            return jsonify({"error": "Formato inválido de los datos históricos"}), 500
-
         if not klines:
-            logging.warning("❌ No se encontraron datos históricos. Revisa si la tabla existe o si los filtros excluyen todos los datos.")
-            logging.warning(f"No se encontraron datos históricos para {symbol} en {interval} con los parámetros proporcionados.")
-            return jsonify({"klines": [], "mensaje": f"No se encontraron datos para {symbol} en {interval}."})
+            logging.warning("❌ No se encontraron datos históricos.")
+            return jsonify({"klines": []})
+
+        for k in klines:
+            if not isinstance(k, dict) or not all(key in k for key in ("t", "c", "v")):
+                logging.error(f"Formato inválido en kline: {k}")
+                return jsonify({"klines": [], "error": "Formato inválido en datos históricos"}), 500
 
         resultado = [{
             "t": int(k["t"]),
