@@ -51,7 +51,16 @@ class BinanceWebSocket:
             # Enviar a wsbridge después de notificar a los observers
             try:
                 import asyncio
-                asyncio.run(self.enviar_a_wsbridge(kline))
+                vela = {
+                    "t": kline.get("t"),
+                    "o": kline.get("o"),
+                    "h": kline.get("h"),
+                    "l": kline.get("l"),
+                    "c": kline.get("c"),
+                    "v": kline.get("v"),
+                    "x": kline.get("x")
+                }
+                asyncio.run(self.enviar_a_wsbridge(vela))
             except Exception as e:
                 ws_logger.error(f"[WS-BRIDGE] Error ejecutando asyncio.run: {e}")
         except Exception as e:
