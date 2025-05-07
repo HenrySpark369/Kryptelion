@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title id="documentTitle">Trading Bot Dashboard</title>
     <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -9,55 +10,34 @@
     <link href="https://cdn.datatables.net/1.10.25/css/jquery.dataTables.min.css" rel="stylesheet">
     <script src="https://cdn.datatables.net/1.10.25/js/jquery.dataTables.min.js"></script>
 
-    <style>
-        html, body {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-        }
-        #chart-container {
-            height: 70vh;
-            width: 100%;
-            max-width: 100%;
-            margin: auto;
-        }
-        canvas {
-            width: 100% !important;
-            height: 100% !important;
-            display: block;
-        }
-        body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-            box-sizing: border-box;
-        }
-    </style>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
+    <button id="toggleModoOscuro" aria-label="Alternar modo oscuro" style="position: fixed; top: 10px; right: 10px; z-index: 1000;">🌙</button>
     <h1 id="tituloPrincipal">Trading Bot Dashboard</h1>
 
     <h2>Configurar el gráfico</h2>
     <label for="selectorSymbol">Símbolo:</label>
-    <select id="selectorSymbol" class="">
+    <select id="selectorSymbol">
         <option value="BTCUSDT">BTCUSDT</option>
         <option value="ETHUSDT">ETHUSDT</option>
         <option value="SOLUSDT">SOLUSDT</option>
     </select>
 
     <label for="selectorInterval">Intervalo:</label>
-    <select id="selectorInterval" class=""></select>
+    <select id="selectorInterval"></select>
 
-    <button class="" id="cargarHistoricoBtn">Cargar Histórico</button>
-    <button class="" id="actualizarGrafico">Actualizar Gráfico</button>
+    <button id="cargarHistoricoBtn">Cargar Histórico</button>
+    <button id="actualizarGrafico">Actualizar Gráfico</button>
 
     <div class="row mb-3 mt-3">
         <div class="col">
             <label for="colorCompra" class="form-label">Color señal de Compra:</label>
-            <input type="color" id="colorCompra" value="#00ff00" class="">
+            <input type="color" id="colorCompra" value="#00ff00">
         </div>
         <div class="col">
             <label for="colorVenta" class="form-label">Color señal de Venta:</label>
-            <input type="color" id="colorVenta" value="#ff0000" class="">
+            <input type="color" id="colorVenta" value="#ff0000">
         </div>
     </div>
 
@@ -75,17 +55,17 @@
 
     <h2>Exportar Señales de Cruce</h2>
     <label for="filtroTipo">Filtrar por tipo:</label>
-    <select id="filtroTipo" class="">
+    <select id="filtroTipo">
         <option value="">Todos</option>
         <option value="compra">Compra</option>
         <option value="venta">Venta</option>
     </select>
-    <button class="" id="descargarCSVBackend">Descargar CSV desde backend</button>
+    <button id="descargarCSVBackend">Descargar CSV desde backend</button>
 
     <label><input type="checkbox" id="toggleCruces" checked> Mostrar señales en gráfico</label>
     <br>
     <label><input type="checkbox" id="filtrar24h"> Solo últimas 24h</label>
-    <button class="" id="aplicarFiltro">Aplicar Filtro</button>
+    <button id="aplicarFiltro">Aplicar Filtro</button>
 
     <h3>Señales Detectadas</h3>
     <table border="1" id="tabla-cruces" style="width:100%; margin-top:10px;">
@@ -98,7 +78,7 @@
         </thead>
         <tbody></tbody>
     </table>
-    <button class="" onclick="descargarCrucesFiltrados()">Descargar señales filtradas (CSV)</button>
+    <button onclick="descargarCrucesFiltrados()">Descargar señales filtradas (CSV)</button>
 
     <h3>Últimos Cruces Guardados</h3>
     <table class="table table-bordered" id="tabla-cruces-guardados">
@@ -115,16 +95,16 @@
 
     <h2>Historial de Órdenes</h2>
     <label for="filtro-symbol">Símbolo:</label>
-    <input type="text" id="filtro-symbol" placeholder="ETHUSDT" class="" />
+    <input type="text" id="filtro-symbol" placeholder="ETHUSDT" />
 
     <label for="filtro-tipo">Tipo:</label>
-    <select id="filtro-tipo" class="">
+    <select id="filtro-tipo">
         <option value="">Todos</option>
         <option value="orden_inicial">Inicial</option>
         <option value="orden_inversa">Inversa</option>
     </select>
-    <button class="" onclick="filtrarOrdenes()">Filtrar</button>
-    <button class="" onclick="descargarCSV()">Descargar CSV</button>
+    <button onclick="filtrarOrdenes()">Filtrar</button>
+    <button onclick="descargarCSV()">Descargar CSV</button>
 
     <div class="table-responsive">
         <table border="1" id="tabla-ordenes" style="width:100%; margin-top:20px;">
@@ -170,11 +150,5 @@
     <div id="spinnerCarga" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);">
       <div style="border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div>
     </div>
-    <style>
-      @keyframes spin {
-        0% { transform: rotate(0deg); }
-        100% { transform: rotate(360deg); }
-      }
-    </style>
 </body>
 </html>
