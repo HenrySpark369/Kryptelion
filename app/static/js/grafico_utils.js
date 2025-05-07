@@ -2,9 +2,16 @@ import { calcularSMA } from './indicadores.js';
 import { INTERVALOS_LABELS } from './constants.js';
 
 function crearChart(ctx) {
+    const esModoOscuro = localStorage.getItem("modoOscuro") === "true";
+
     const gradient = ctx.createLinearGradient(0, 0, 0, 400);
-    gradient.addColorStop(0, 'rgba(0, 168, 255, 0.4)');
-    gradient.addColorStop(1, 'rgba(0, 168, 255, 0)');
+    if (esModoOscuro) {
+        gradient.addColorStop(0, 'rgba(0, 168, 255, 0.3)');
+        gradient.addColorStop(1, 'rgba(0, 168, 255, 0)');
+    } else {
+        gradient.addColorStop(0, 'rgba(0, 168, 255, 0.5)');
+        gradient.addColorStop(1, 'rgba(0, 168, 255, 0.05)');
+    }
 
     const config = {
         type: 'line',
@@ -47,13 +54,19 @@ function crearChart(ctx) {
             scales: {
                 y: {
                     position: 'left',
-                    beginAtZero: false
+                    beginAtZero: false,
+                    ticks: {
+                        color: esModoOscuro ? '#fff' : '#000'
+                    }
                 },
                 y1: {
                     position: 'right',
                     beginAtZero: true,
                     grid: {
                         drawOnChartArea: false
+                    },
+                    ticks: {
+                        color: esModoOscuro ? '#fff' : '#000'
                     }
                 }
             },
@@ -61,11 +74,11 @@ function crearChart(ctx) {
                 title: {
                     display: true,
                     text: '',
-                    color: 'white'
+                    color: esModoOscuro ? 'white' : 'black'
                 },
                 legend: {
                     labels: {
-                        color: 'white'
+                        color: esModoOscuro ? 'white' : 'black'
                     }
                 },
                 annotation: {
@@ -74,6 +87,8 @@ function crearChart(ctx) {
             }
         }
     };
+
+    aplicarEstilosModo({ options: config.options, data: config.data }, esModoOscuro);
 
     return new Chart(ctx, config);
 }
@@ -135,7 +150,30 @@ function actualizarGraficoHistorico(chart, klines, symbol, interval, smaWindow =
     const intervaloLegible = INTERVALOS_LABELS[interval] || interval;
     chart.options.plugins.title.text = `Histórico de Precios - ${symbol} (${intervaloLegible})`;
 
+    const esModoOscuro = localStorage.getItem("modoOscuro") === "true";
+    aplicarEstilosModo(chart, esModoOscuro);
     chart.update();
 }
 
-export { crearChart, actualizarChart, actualizarGraficoHistorico };
+function aplicarEstilosModo(chart, esModoOscuro) {
+    if (chart.options.scales.y?.ticks) {
+        chart.options.scales.y.ticks.color = esModoOscuro ? "#fff" : "#000";
+    }
+    if (chart.options.scales.y1?.ticks) {
+        chart.options.scales.y1.ticks.color = esModoOscuro ? "#fff" : "#000";
+    }
+    if (chart.options.scales.x?.ticks) {
+        chart.options.scales.x.ticks.color = esModoOscuro ? "#fff" : "#000";
+    }
+    if (chart.options.plugins.title) {
+        chart.options.plugins.title.color = esModoOscuro ? "white" : "black";
+    }
+    if (chart.options.plugins.legend?.labels) {
+        chart.options.plugins.legend.labels.color = esModoOscuro ? "white" : "black";
+    }
+    if (chart.data.datasets[1]) {
+        chart.data.datasets[1].backgroundColor = esModoOscuro ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)';
+    }
+}
+
+export { crearChart, actualizarChart, actualizarGraficoHistorico, aplicarEstilosModo };
