@@ -6,6 +6,14 @@ from wscliente.cliente_binance import BinanceWebSocket
 from data.export import guardar_datos_exportados, consultar_exportaciones
 import logging
 
+# Cargar intervalos válidos desde config/intervalos.json
+import json
+from pathlib import Path
+
+with open(Path(__file__).parent.parent.parent / "config" / "intervalos.json") as f:
+    INTERVALOS_CONFIG = json.load(f)
+    VALID_INTERVALS = set(INTERVALOS_CONFIG.keys())
+
 bp = Blueprint("live", __name__)
 
 ws_manager = WebSocketManager()
@@ -18,7 +26,7 @@ def stream():
 
     symbol = request.args.get("symbol", "BTCUSDT").upper()
     interval = request.args.get("interval", "1m")
-    valid_intervals = {"1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h", "12h", "1d", "3d", "1w", "1M"}
+    valid_intervals = VALID_INTERVALS
 
     if not symbol.isalnum() or not (6 <= len(symbol) <= 12):
         return Response("Invalid symbol parameter", status=400)
@@ -159,7 +167,7 @@ def bot_en_vivo():
     interval = request.args.get("interval", "1m")
     estrategia_nombre = request.args.get("estrategia", "sma_cruce")
 
-    valid_intervals = {"1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h", "12h", "1d", "3d", "1w", "1M"}
+    valid_intervals = VALID_INTERVALS
     if interval not in valid_intervals:
         return Response("Invalid interval parameter", status=400)
 
