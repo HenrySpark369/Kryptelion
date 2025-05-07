@@ -147,8 +147,10 @@ async function cargarHistoricoInicial() {
         const interval = SELECTOR_INTERVAL?.value || "1m";
         const klines = await obtenerDatosHistoricos(symbol, interval);
         if (klines.length === 0) {
-            alert("No hay datos disponibles para el símbolo e intervalo seleccionados.");
+            if (mensajeSinDatos) mensajeSinDatos.classList.remove("d-none");
             return;
+        } else {
+            if (mensajeSinDatos) mensajeSinDatos.classList.add("d-none");
         }
 
         mostrarMensaje(`📈 Cargando gráfico para ${symbol} (${interval})...`);
