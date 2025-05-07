@@ -4,6 +4,13 @@ import requests
 import time
 from datetime import datetime, timezone
 import os
+import json
+from pathlib import Path
+
+def cargar_intervalos_json():
+    ruta = Path(__file__).parent.parent / "config" / "intervalos.json"
+    with open(ruta) as f:
+        return json.load(f)
 
 def obtener_datos_historicos(symbols: list, intervals: list):
     """
@@ -58,12 +65,8 @@ def actualizar_datos(symbols: list, intervals: list):
     Actualiza los datos históricos en la base de datos SQLite si hay nuevos registros.
     """
     base_url = "https://api.binance.com/api/v3/klines"
-    interval_map = {
-        "1m": 60000, "3m": 180000, "5m": 300000, "15m": 900000,
-        "30m": 1800000, "1h": 3600000, "2h": 7200000, "4h": 14400000,
-        "6h": 21600000, "8h": 28800000, "12h": 43200000, "1d": 86400000,
-        "3d": 259200000, "1w": 604800000, "1M": 2592000000
-    }
+    interval_data = cargar_intervalos_json()
+    interval_map = {k: v["ms"] for k, v in interval_data.items()}
 
     repo = HistoricoRepository(DB_PATH)
 
@@ -116,10 +119,11 @@ def actualizar_datos(symbols: list, intervals: list):
         print("🔄 Actualización completada.")
 
 if __name__ == "__main__":
+    from data.updater import cargar_intervalos_json
     symbols_env = os.getenv("SYMBOLS", "BTCUSDT,ETHUSDT, SOLUSDT")
-    intervals_env = os.getenv("INTERVALS", "1m,5m,15m")
+    intervalos_config = cargar_intervalos_json()
     symbols = [s.strip() for s in symbols_env.split(",") if s.strip()]
-    intervals = [i.strip() for i in intervals_env.split(",") if i.strip()]
+    intervals = list(intervalos_config.keys())
 
     actualizar_datos(symbols, intervals)
 
