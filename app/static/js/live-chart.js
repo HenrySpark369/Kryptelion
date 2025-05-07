@@ -1,3 +1,94 @@
+import { aplicarEstilosModo } from './grafico_utils.js';
+// --- Modo oscuro ---
+function aplicarModoOscuro() {
+    const body = document.body;
+    const chartContainer = document.getElementById("chartContainer");
+
+    body.classList.toggle("modo-oscuro");
+    if (chartContainer) chartContainer.classList.toggle("modo-oscuro");
+
+    const esModoOscuro = body.classList.contains("modo-oscuro");
+    localStorage.setItem("modoOscuro", esModoOscuro ? "true" : "false");
+
+    if (chart) {
+        if (esModoOscuro) {
+            chart.options.plugins.legend.labels.color = "#fff";
+            chart.options.scales.x.ticks.color = "#fff";
+            chart.options.scales.y.ticks.color = "#fff";
+            if (chart.options.plugins.tooltip) {
+                chart.options.plugins.tooltip.backgroundColor = "#333";
+                chart.options.plugins.tooltip.titleColor = "#fff";
+                chart.options.plugins.tooltip.bodyColor = "#fff";
+                chart.options.plugins.tooltip.borderColor = "#555";
+                chart.options.plugins.tooltip.borderWidth = 1;
+            }
+            chart.options.plugins.background = chart.options.plugins.background || {};
+            chart.options.plugins.background.color = "#1e1e1e";
+            chart.options.backgroundColor = "#1e1e1e";
+        } else {
+            // Restaurar colores para modo claro
+            chart.options.plugins.legend.labels.color = "#000";
+            chart.options.scales.x.ticks.color = "#000";
+            chart.options.scales.y.ticks.color = "#000";
+            if (chart.options.plugins.tooltip) {
+                chart.options.plugins.tooltip.backgroundColor = "#fff";
+                chart.options.plugins.tooltip.titleColor = "#000";
+                chart.options.plugins.tooltip.bodyColor = "#000";
+                chart.options.plugins.tooltip.borderColor = "#ccc";
+                chart.options.plugins.tooltip.borderWidth = 1;
+            }
+            chart.options.plugins.background = chart.options.plugins.background || {};
+            chart.options.plugins.background.color = "#ffffff";
+            chart.options.backgroundColor = "#ffffff";
+        }
+        aplicarEstilosModo(chart, esModoOscuro);
+        chart.update();
+
+        const elementosUI = [SELECTOR_SYMBOL, SELECTOR_INTERVAL];
+        elementosUI.forEach(elem => {
+            if (elem) {
+                elem.style.backgroundColor = esModoOscuro ? "#2c2c2c" : "#fff";
+                elem.style.color = esModoOscuro ? "#fff" : "#000";
+                elem.style.border = esModoOscuro ? "1px solid #555" : "1px solid #ccc";
+            }
+        });
+
+        // Aplica modo oscuro a botones, selects y controles comunes
+        const botones = document.querySelectorAll("button, select, input[type='button'], input[type='submit']");
+        botones.forEach(btn => {
+            btn.style.backgroundColor = esModoOscuro ? "#2c2c2c" : "#fff";
+            btn.style.color = esModoOscuro ? "#fff" : "#000";
+            btn.style.border = esModoOscuro ? "1px solid #555" : "1px solid #ccc";
+        });
+    }
+
+    const toggleIcon = document.getElementById("toggleModoOscuro");
+    if (toggleIcon) {
+        toggleIcon.textContent = esModoOscuro ? "☀️" : "🌙";
+    }
+}
+
+// Restaurar modo oscuro si estaba activado
+if (!localStorage.getItem("modoOscuro")) {
+    localStorage.setItem("modoOscuro", "true");
+}
+if (localStorage.getItem("modoOscuro") === "true") {
+    setTimeout(() => aplicarModoOscuro(), 100);
+}
+
+const toggleOscuroBtn = document.getElementById("toggleModoOscuro");
+if (toggleOscuroBtn) {
+    toggleOscuroBtn.addEventListener("click", () => {
+        aplicarModoOscuro();
+    });
+
+    // Actualiza el ícono del botón en la carga inicial
+    document.addEventListener("DOMContentLoaded", () => {
+        const esOscuro = document.body.classList.contains("modo-oscuro");
+        toggleOscuroBtn.textContent = esOscuro ? "☀️" : "🌙";
+    });
+}
+
 import { cargarIntervalos, INTERVALOS_VALIDOS, INTERVALOS_LABELS } from './constants.js';
 await cargarIntervalos();
 import { exportarJSON, exportarCSV, exportarABackend } from './export_utils.js';
