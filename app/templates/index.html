@@ -3,21 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <title id="documentTitle">Trading Bot Dashboard</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-KyZXEJ+P+N+NYZxvHEpFA5REtDGV6fT4sYw29GvKm66RjUytCYYKKldvFHy97yzZ" crossorigin="anonymous">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <link href="https://cdn.datatables.net/1.10.25/css/jquery.dataTables.min.css" rel="stylesheet">
+    <!-- jQuery -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- DataTables -->
+    <link href="https://cdn.datatables.net/1.10.25/css/jquery.dataTables.min.css" rel="stylesheet">
     <script src="https://cdn.datatables.net/1.10.25/js/jquery.dataTables.min.js"></script>
+
     <style>
-        canvas {
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+        }
+        #chart-container {
+            height: 70vh;
+            width: 100%;
             max-width: 100%;
-            height: auto;
+            margin: auto;
+        }
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+            display: block;
         }
         body {
             font-family: Arial, sans-serif;
-            margin: 20px;
+            padding: 20px;
+            box-sizing: border-box;
         }
     </style>
 </head>
@@ -26,37 +38,36 @@
 
     <h2>Configurar el gráfico</h2>
     <label for="selectorSymbol">Símbolo:</label>
-    <select id="selectorSymbol" class="form-select">
+    <select id="selectorSymbol" class="">
         <option value="BTCUSDT">BTCUSDT</option>
         <option value="ETHUSDT">ETHUSDT</option>
-        <option value="BNBUSDT">BNBUSDT</option>
+        <option value="SOLUSDT">SOLUSDT</option>
     </select>
 
     <label for="selectorInterval">Intervalo:</label>
-    <select id="selectorInterval" class="form-select">
-        <option value="1m">1 minuto</option>
-        <option value="5m">5 minutos</option>
-        <option value="15m">15 minutos</option>
-        <option value="1h">1 hora</option>
-        <option value="4h">4 horas</option>
-        <option value="1d">1 día</option>
-    </select>
+    <select id="selectorInterval" class=""></select>
 
-    <button class="btn btn-primary" id="cargarHistoricoBtn">Cargar Histórico</button>
-    <button class="btn btn-primary" id="actualizarGrafico">Actualizar Gráfico</button>
+    <button class="" id="cargarHistoricoBtn">Cargar Histórico</button>
+    <button class="" id="actualizarGrafico">Actualizar Gráfico</button>
 
-    <!-- Toast de notificación de gráfico actualizado -->
-    <div class="toast align-items-center text-bg-info border-0 position-fixed bottom-0 end-0 m-3" role="alert" aria-live="assertive" aria-atomic="true" id="toastGrafico">
-      <div class="d-flex">
-        <div class="toast-body">
-          Gráfico actualizado correctamente.
+    <div class="row mb-3 mt-3">
+        <div class="col">
+            <label for="colorCompra" class="form-label">Color señal de Compra:</label>
+            <input type="color" id="colorCompra" value="#00ff00" class="">
         </div>
-        <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-      </div>
+        <div class="col">
+            <label for="colorVenta" class="form-label">Color señal de Venta:</label>
+            <input type="color" id="colorVenta" value="#ff0000" class="">
+        </div>
     </div>
 
-    <div id="chart-container" style="height: 500px; max-width: 1000px; margin: auto;">
-        <canvas id="liveChart"></canvas>
+    <div class="mb-3">
+        <strong>Estado de conexión:</strong>
+        <span id="estadoConexion" class="badge bg-secondary">Desconocido</span>
+    </div>
+
+    <div id="chart-container" style="height: 500px; width: 100%; max-width: 100%; margin: auto;">
+        <canvas id="liveChart" style="width: 100%; height: 100%;"></canvas>
         <div id="mensajeSinDatos" class="alert alert-warning mt-3 text-center d-none">
             No hay datos disponibles para el símbolo e intervalo seleccionados.
         </div>
@@ -64,17 +75,17 @@
 
     <h2>Exportar Señales de Cruce</h2>
     <label for="filtroTipo">Filtrar por tipo:</label>
-    <select id="filtroTipo" class="form-select">
+    <select id="filtroTipo" class="">
         <option value="">Todos</option>
         <option value="compra">Compra</option>
         <option value="venta">Venta</option>
     </select>
-    <button class="btn btn-primary" id="descargarCSVBackend">Descargar CSV desde backend</button>
+    <button class="" id="descargarCSVBackend">Descargar CSV desde backend</button>
 
     <label><input type="checkbox" id="toggleCruces" checked> Mostrar señales en gráfico</label>
     <br>
     <label><input type="checkbox" id="filtrar24h"> Solo últimas 24h</label>
-    <button class="btn btn-info" id="aplicarFiltro">Aplicar Filtro</button>
+    <button class="" id="aplicarFiltro">Aplicar Filtro</button>
 
     <h3>Señales Detectadas</h3>
     <table border="1" id="tabla-cruces" style="width:100%; margin-top:10px;">
@@ -87,7 +98,7 @@
         </thead>
         <tbody></tbody>
     </table>
-    <button class="btn btn-success mt-2" onclick="descargarCrucesFiltrados()">Descargar señales filtradas (CSV)</button>
+    <button class="" onclick="descargarCrucesFiltrados()">Descargar señales filtradas (CSV)</button>
 
     <h3>Últimos Cruces Guardados</h3>
     <table class="table table-bordered" id="tabla-cruces-guardados">
@@ -104,16 +115,16 @@
 
     <h2>Historial de Órdenes</h2>
     <label for="filtro-symbol">Símbolo:</label>
-    <input type="text" id="filtro-symbol" placeholder="ETHUSDT" class="form-control" />
+    <input type="text" id="filtro-symbol" placeholder="ETHUSDT" class="" />
 
     <label for="filtro-tipo">Tipo:</label>
-    <select id="filtro-tipo" class="form-select">
+    <select id="filtro-tipo" class="">
         <option value="">Todos</option>
         <option value="orden_inicial">Inicial</option>
         <option value="orden_inversa">Inversa</option>
     </select>
-    <button class="btn btn-secondary" onclick="filtrarOrdenes()">Filtrar</button>
-    <button class="btn btn-success" onclick="descargarCSV()">Descargar CSV</button>
+    <button class="" onclick="filtrarOrdenes()">Filtrar</button>
+    <button class="" onclick="descargarCSV()">Descargar CSV</button>
 
     <div class="table-responsive">
         <table border="1" id="tabla-ordenes" style="width:100%; margin-top:20px;">
@@ -131,440 +142,39 @@
         </table>
     </div>
 
-    <script>
-        const WS_URL = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.hostname + ':8765';
+    <!-- Luxon -->
+    <script src="https://cdn.jsdelivr.net/npm/luxon@3.4.4/build/global/luxon.min.js"></script>
 
-        const ctx = document.getElementById('liveChart').getContext('2d');
-        const data = {
-            labels: [],
-            datasets: [{
-                label: 'Precio de cierre',
-                data: [],
-                borderColor: 'rgba(75, 192, 192, 1)',
-                borderWidth: 2,
-                fill: false,
-                tension: 0.1
-            }]
-        };
+    <!-- Chart.js (global UMD build) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
 
-        const config = {
-            type: 'line',
-            data: data,
-            options: {
-                responsive: true,
-                animation: false,
-                scales: {
-                    x: {
-                        type: 'time',
-                        time: {
-                            unit: 'minute'
-                        }
-                    },
-                    y: {
-                        beginAtZero: false
-                    }
-                }
-            }
-        };
+    <!-- Adapter de Chart.js para Luxon -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-luxon@1.3.1/dist/chartjs-adapter-luxon.umd.js"></script>
 
-        const chart = new Chart(ctx, config);
+    <script type="module">
+    import { cargarIntervalos, INTERVALOS_LABELS } from "/static/js/constants.js";
 
-        let socket;
-
-        // Función para limpiar el gráfico
-        function limpiarGrafico() {
-            chart.data.labels = [];
-            chart.data.datasets[0].data = [];
-            chart.update();
-        }
-
-        function iniciarStream(symbol, interval) {
-            let pingInterval;
-            // Cerrar conexión WebSocket anterior de forma segura si existe
-            if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) {
-                if (pingInterval) clearInterval(pingInterval);
-                socket.onclose = null;
-                socket.onerror = null;
-                socket.close(1000, "Reconexión solicitada");
-            }
-
-            limpiarGrafico();
-
-            const url = `${WS_URL}?symbol=${symbol}&interval=${interval}`;
-            socket = new WebSocket(url);
-
-            socket.onmessage = function(event) {
-                // Opcional: ignorar mensajes tipo "pong"
-                const msg = JSON.parse(event.data);
-                if (msg.type === "pong") return;
-
-                const kline = msg;
-                const t = new Date(kline.t);
-                const c = parseFloat(kline.c);
-
-                chart.data.labels.push(t);
-                chart.data.datasets[0].data.push(c);
-
-                if (chart.data.labels.length > 50) {
-                    chart.data.labels.shift();
-                    chart.data.datasets[0].data.shift();
-                }
-
-                chart.update();
-            };
-
-            socket.onerror = function(err) {
-                if (pingInterval) clearInterval(pingInterval);
-                console.error("WebSocket error", err);
-                socket.close();
-                setTimeout(() => iniciarStream(symbol, interval), 1000);
-            };
-
-            socket.onclose = function() {
-                if (pingInterval) clearInterval(pingInterval);
-                console.warn("WebSocket cerrado. Reintentando...");
-                setTimeout(() => iniciarStream(symbol, interval), 1000);
-            };
-
-            // Enviar un ping cada 20 segundos para mantener viva la conexión
-            pingInterval = setInterval(() => {
-                if (socket && socket.readyState === WebSocket.OPEN) {
-                    socket.send(JSON.stringify({ type: "ping" }));
-                }
-            }, 20000);
-        }
-
-        // Inicializar con valores por defecto
-        iniciarStream('BTCUSDT', '1m');
-
-        document.getElementById('actualizarGrafico').addEventListener('click', function() {
-            const spinner = document.getElementById("spinnerCarga");
-            spinner.classList.remove("d-none");
-
-            document.getElementById("cargarHistoricoBtn").click();
-
-            const observer = new MutationObserver(() => {
-                const sinDatos = chart.data.labels.length === 0;
-                document.getElementById("spinnerCarga").classList.add("d-none");
-                document.getElementById("mensajeSinDatos").classList.toggle("d-none", !sinDatos);
-
-                if (!sinDatos) {
-                    const toast = new bootstrap.Toast(document.getElementById('toastGrafico'));
-                    toast.show();
-                }
-
-                observer.disconnect();
-            });
-            observer.observe(document.getElementById('liveChart'), { childList: true, subtree: true });
-        });
-
-let todasLasOrdenes = [];
-let cruceSignals = [];
-
-fetch("/cruces")
-    .then(res => res.json())
-    .then(data => {
-        cruceSignals = data;
-        actualizarTablaCruces();
-
-        // Añadir anotaciones de señales de cruce al gráfico
-        if (!config.options.plugins) config.options.plugins = {};
-        if (!config.options.plugins.annotation) config.options.plugins.annotation = {};
-        if (!config.options.plugins.annotation.annotations) config.options.plugins.annotation.annotations = [];
-
-        data.forEach(signal => {
-            config.options.plugins.annotation.annotations.push({
-                type: 'line',
-                mode: 'vertical',
-                scaleID: 'x',
-                value: new Date(signal.timestamp),
-                borderColor: signal.tipo === 'compra' ? 'green' : 'red',
-                borderWidth: 2,
-                label: {
-                    enabled: true,
-                    content: signal.tipo === 'compra' ? 'Compra' : 'Venta',
-                    position: 'top'
-                }
-            });
-        });
-
-        chart.update();
+    document.addEventListener("DOMContentLoaded", async () => {
+      await cargarIntervalos();
+      const selector = document.getElementById("selectorInterval");
+      for (const [valor, props] of Object.entries(INTERVALOS_LABELS)) {
+        const option = document.createElement("option");
+        option.value = valor;
+        option.textContent = props;
+        selector.appendChild(option);
+      }
     });
-
-    // Permitir mostrar/ocultar señales de cruce en el gráfico y filtrar por últimas 24h
-    document.getElementById("toggleCruces").addEventListener("change", actualizarAnotaciones);
-    document.getElementById("filtrar24h").addEventListener("change", actualizarAnotaciones);
-    document.getElementById("aplicarFiltro").addEventListener("click", actualizarAnotaciones);
-
-    function actualizarAnotaciones() {
-        const mostrar = document.getElementById("toggleCruces").checked;
-        const solo24h = document.getElementById("filtrar24h").checked;
-
-        if (!config.options.plugins?.annotation) return;
-
-        const ahora = new Date();
-        const hace24h = new Date(ahora.getTime() - 24 * 60 * 60 * 1000);
-
-        config.options.plugins.annotation.annotations = mostrar
-            ? cruceSignals
-                .filter(s => !solo24h || new Date(s.timestamp) >= hace24h)
-                .map(signal => ({
-                    type: 'line',
-                    mode: 'vertical',
-                    scaleID: 'x',
-                    value: new Date(signal.timestamp),
-                    borderColor: signal.tipo === 'compra' ? 'green' : 'red',
-                    borderWidth: 2,
-                    label: {
-                        enabled: true,
-                        content: signal.tipo === 'compra' ? 'Compra' : 'Venta',
-                        position: 'top'
-                    }
-                }))
-            : [];
-
-        chart.update();
-    }
-
-        function actualizarTablaCruces() {
-            const tbody = document.querySelector("#tabla-cruces tbody");
-            tbody.innerHTML = "";
-            cruceSignals.forEach(signal => {
-                const row = document.createElement("tr");
-                row.innerHTML = `
-                    <td>${signal.timestamp}</td>
-                    <td>${signal.tipo}</td>
-                    <td>${signal.precio}</td>
-                `;
-                tbody.appendChild(row);
-            });
-        }
-
-        function mostrarOrdenes(data) {
-            const tbody = document.querySelector("#tabla-ordenes tbody");
-            tbody.innerHTML = "";
-            data.forEach(orden => {
-                const row = document.createElement("tr");
-                row.innerHTML = `
-                    <td>${orden.timestamp}</td>
-                    <td>${orden.tipo}</td>
-                    <td>${orden.datos.symbol || '-'}</td>
-                    <td>${orden.datos.side || '-'}</td>
-                    <td>${orden.datos.origQty || '-'}</td>
-                    <td>${orden.datos.status || '-'}</td>
-                `;
-                tbody.appendChild(row);
-            });
-        }
-
-        function filtrarOrdenes() {
-            const simbolo = document.getElementById("filtro-symbol").value.toUpperCase();
-            const tipo = document.getElementById("filtro-tipo").value;
-
-            const filtradas = todasLasOrdenes.filter(o => {
-                const matchSymbol = !simbolo || (o.datos.symbol || "").toUpperCase().includes(simbolo);
-                const matchTipo = !tipo || o.tipo === tipo;
-                return matchSymbol && matchTipo;
-            });
-
-            mostrarOrdenes(filtradas);
-        }
-
-        fetch("/ordenes")
-            .then(res => res.json())
-            .then(data => {
-                todasLasOrdenes = data;
-                mostrarOrdenes(data);
-                $(document).ready(function() {
-                    $('#tabla-ordenes').DataTable();
-                });
-            });
-
-        function descargarCSV() {
-            if (!todasLasOrdenes.length) return;
-
-            // Mostrar mensaje de carga
-            let mensajeCarga = document.createElement("div");
-            mensajeCarga.innerHTML = "Generando CSV... Esto puede tardar unos segundos.";
-            document.body.appendChild(mensajeCarga);
-
-            const encabezados = ["timestamp", "tipo", "symbol", "side", "qty", "status"];
-            const filas = todasLasOrdenes.map(o => [
-                o.timestamp,
-                o.tipo,
-                o.datos.symbol || "-",
-                o.datos.side || "-",
-                o.datos.origQty || "-",
-                o.datos.status || "-"
-            ]);
-
-            let csv = encabezados.join(",") + "\n";
-            filas.forEach(fila => {
-                csv += fila.join(",") + "\n";
-            });
-
-            const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement("a");
-            link.setAttribute("href", url);
-            // Nuevo nombre de archivo basado en el título de la pestaña y filtros activos
-            const titulo = document.title.replace(/\s+/g, "_").replace(/[^\w\-]/g, "");
-            const filtroSimbolo = document.getElementById("filtro-symbol").value.toUpperCase();
-            const filtroTipo = document.getElementById("filtro-tipo").value;
-            const sufijoFiltro = `${filtroSimbolo ? "_" + filtroSimbolo : ""}${filtroTipo ? "_" + filtroTipo : ""}`;
-            link.setAttribute("download", `ordenes_${titulo}${sufijoFiltro}.csv`);
-            link.style.visibility = "hidden";
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            // Eliminar mensaje de carga
-            document.body.removeChild(mensajeCarga);
-        }
-        // --- Función para cargar últimos cruces guardados y actualizar tabla ---
-        async function cargarUltimosCruces() {
-            try {
-                const res = await fetch("/ultimos_cruces");
-                const data = await res.json();
-                const tbody = document.querySelector("#tabla-cruces-guardados tbody");
-                tbody.innerHTML = "";
-                data.forEach(c => {
-                    const row = document.createElement("tr");
-                    row.innerHTML = `
-                        <td>${c.timestamp}</td>
-                        <td>${c.tipo}</td>
-                        <td>${c.precio}</td>
-                        <td>${c.sma}</td>
-                    `;
-                    tbody.appendChild(row);
-                });
-            } catch (err) {
-                console.error("Error cargando cruces guardados:", err);
-            }
-        }
-// --- Agrega un addEventListener para el botón cargarHistoricoBtn ---
-document.getElementById("cargarHistoricoBtn").addEventListener("click", () => {
-    const symbol = document.getElementById("selectorSymbol").value;
-    const interval = document.getElementById("selectorInterval").value;
-
-    if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.close();
-    }
-
-    // Limpiar el gráfico antes de cargar nuevos datos
-    limpiarGrafico();
-
-    // Limpiar anotaciones si existen
-    if (config.options.plugins?.annotation?.annotations) {
-        config.options.plugins.annotation.annotations = [];
-    }
-
-    fetch(`/historico?symbol=${symbol}&interval=${interval}&limit=100`)
-        .then(res => res.json())
-        .then(res => {
-            const klines = res.klines || [];
-            console.log("🔍 Estructura de klines:", klines);
-            const labels = [];
-            const precios = [];
-
-            klines.forEach(k => {
-                labels.push(new Date(k.t));
-                precios.push(parseFloat(k.c));
-            });
-
-            chart.data.labels = labels;
-            chart.data.datasets[0].data = precios;
-            document.getElementById("mensajeSinDatos").classList.toggle("d-none", klines.length !== 0);
-            chart.update();
-
-            // Actualizar el título de la pestaña con el formato solicitado
-            const intervalMap = {
-                "1m": "1 minuto",
-                "5m": "5 minutos",
-                "15m": "15 minutos",
-                "1h": "1 hora",
-                "4h": "4 horas",
-                "1d": "1 día"
-            };
-            const intervaloLegible = intervalMap[interval] || interval;
-            document.title = `Histórico ${symbol} (${intervaloLegible})`;
-            document.getElementById("tituloPrincipal").textContent = `Histórico de Precios - ${symbol} (${intervaloLegible})`;
-
-            iniciarStream(symbol, interval);
-        })
-        .catch(err => {
-            console.error("Error al cargar histórico:", err);
-        });
-});
-// --- Descargar señales filtradas (CSV) ---
-function descargarCrucesFiltrados() {
-    if (!cruceSignals.length) return;
-
-    const filtroTipo = document.getElementById("filtroTipo").value;
-    const solo24h = document.getElementById("filtrar24h").checked;
-    const ahora = new Date();
-    const hace24h = new Date(ahora.getTime() - 24 * 60 * 60 * 1000);
-
-    const filtradas = cruceSignals.filter(s => {
-        const matchTipo = !filtroTipo || s.tipo === filtroTipo;
-        const match24h = !solo24h || new Date(s.timestamp) >= hace24h;
-        return matchTipo && match24h;
-    });
-
-    const encabezados = ["timestamp", "tipo", "precio"];
-    const filas = filtradas.map(s => [s.timestamp, s.tipo, s.precio]);
-
-    let csv = encabezados.join(",") + "\n";
-    filas.forEach(fila => {
-        csv += fila.join(",") + "\n";
-    });
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-
-    const titulo = document.title.replace(/\s+/g, "_").replace(/[^\w\-]/g, "");
-    const sufijoFiltro = filtroTipo ? `_${filtroTipo}` : "";
-    const sufijo24h = solo24h ? "_24h" : "";
-    link.setAttribute("download", `cruces_filtrados_${titulo}${sufijoFiltro}${sufijo24h}.csv`);
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-// --- Descargar CSV desde backend con nombre dinámico y filtro activo ---
-document.getElementById("descargarCSVBackend").addEventListener("click", async function() {
-    try {
-        const res = await fetch("/descargar_csv_backend");
-        if (!res.ok) throw new Error("Error al descargar CSV del backend");
-        const blob = await res.blob();
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        // Nombre dinámico basado en el título de la pestaña y filtro activo
-        const titulo = document.title.replace(/\s+/g, "_").replace(/[^\w\-]/g, "");
-        const filtro = document.getElementById("filtroTipo").value;
-        const sufijoFiltro = filtro ? `_${filtro}` : "";
-        link.setAttribute("download", `cruces_${titulo}${sufijoFiltro}.csv`);
-        link.style.visibility = "hidden";
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    } catch (err) {
-        alert("No se pudo descargar el CSV desde el backend.");
-        console.error(err);
-    }
-});
-</script>
+    </script>
+    <script type="module" src="/static/js/live-chart.js"></script>
     <!-- Spinner de carga -->
-    <div id="spinnerCarga" class="position-fixed top-50 start-50 translate-middle d-none">
-      <div class="spinner-border text-primary" role="status">
-        <span class="visually-hidden">Cargando...</span>
-      </div>
+    <div id="spinnerCarga" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);">
+      <div style="border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite;"></div>
     </div>
-</body>
-</html>
+    <style>
+      @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+      }
+    </style>
 </body>
 </html>
