@@ -1,11 +1,33 @@
-
-
-
 body {
     font-family: Arial, sans-serif;
     margin: 20px;
     background-color: #f4f4f4;
     color: #333;
+}
+
+/* === Correcciones para modo claro === */
+body:not(.modo-oscuro) label,
+body:not(.modo-oscuro) legend,
+body:not(.modo-oscuro) strong,
+body:not(.modo-oscuro) span,
+body:not(.modo-oscuro) p {
+    color: #333 !important;
+}
+
+body:not(.modo-oscuro) input[type="color"] {
+    background-color: #fff;
+    border: 1px solid #ccc;
+}
+
+body:not(.modo-oscuro) input,
+body:not(.modo-oscuro) select {
+    color: #000;
+}
+
+body:not(.modo-oscuro) th,
+body:not(.modo-oscuro) td {
+    background-color: #fff;
+    color: #000;
 }
 
 h1 {
@@ -20,4 +42,79 @@ canvas {
     background-color: #fff;
     padding: 10px;
     box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+/* === Modo Oscuro === */
+body.modo-oscuro {
+    background-color: #121212;
+    color: #ffffff;
+}
+
+body.modo-oscuro h1 {
+    color: #e0e0e0;
+}
+
+body.modo-oscuro canvas {
+    background-color: #1e1e1e;
+    border-color: #555;
+    box-shadow: 0 0 10px rgba(255,255,255,0.1);
+}
+
+body.modo-oscuro ::selection {
+    background: #444;
+    color: #fff;
+}
+
+body.modo-oscuro button:focus,
+body.modo-oscuro select:focus,
+body.modo-oscuro input:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px #666;
+    background-color: #2c2c2c;
+    color: #fff;
+    border-color: #888;
+}
+
+body.modo-oscuro table.dataTable {
+    background-color: #1e1e1e;
+    color: #fff;
+}
+
+
+body.modo-oscuro th,
+body.modo-oscuro td {
+    border-color: #555;
+}
+
+body.modo-oscuro label,
+body.modo-oscuro legend,
+body.modo-oscuro strong,
+body.modo-oscuro span,
+body.modo-oscuro p {
+    color: #fff !important;
+}
+
+body.modo-oscuro input[type="color"] {
+    background-color: #2c2c2c;
+    border: 1px solid #555;
+}
+
+body.modo-oscuro input,
+body.modo-oscuro select {
+    color: #fff;
+}
+
+body.modo-oscuro th,
+body.modo-oscuro td {
+    background-color: #1a1a1a;
+    color: #ffffff;
+}
+
+/* === Fondo dinámico del gráfico (canvas) === */
+body.modo-oscuro canvas {
+    background-color: #1e1e1e !important;
+}
+
+body:not(.modo-oscuro) canvas {
+    background-color: #ffffff !important;
 }
