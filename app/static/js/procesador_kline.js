@@ -1,26 +1,43 @@
+function onMessageHandlerFactory({ chart, actualizarChart, actualizarSMA, analizarEstrategiaBackend }) {
+    return function onMessageHandler(event) {
+        let kline;
+        try {
+            kline = JSON.parse(event.data);
+        } catch (e) {
+            console.error("❌ Error al parsear kline:", e);
+            return;
+        }
 
+        const { t, o, h, l, c, v, x } = kline;
 
-function onMessageHandler(event) {
-    const kline = JSON.parse(event.data);
-    const t = new Date(kline.t);
-    const c = parseFloat(kline.c);
-    const v = parseFloat(kline.v);
+        if (!t || !o || !h || !l || !c || !v) {
+            console.warn("⚠️ Kline incompleto:", kline);
+            return;
+        }
 
-    if (typeof actualizarChart === "function") {
-        actualizarChart(t, c, v, kline.x);
-    }
+        const candle = {
+            x: new Date(t),
+            o: parseFloat(o),
+            h: parseFloat(h),
+            l: parseFloat(l),
+            c: parseFloat(c),
+            v: parseFloat(v)
+        };
 
-    if (typeof actualizarSMA === "function") {
-        actualizarSMA(kline.x);
-    }
+        const esVelaCerrada = x === true;
 
-    if (typeof chart !== "undefined" && chart.update) {
-        chart.update();
-    }
+        if (typeof actualizarChart === "function") {
+            actualizarChart(chart, candle, esVelaCerrada);
+        }
 
-    if (typeof analizarEstrategiaBackend === "function") {
-        analizarEstrategiaBackend();
-    }
+        if (esVelaCerrada && typeof actualizarSMA === "function") {
+            actualizarSMA();
+        }
+
+        if (esVelaCerrada && typeof analizarEstrategiaBackend === "function") {
+            analizarEstrategiaBackend();
+        }
+    };
 }
 
-export { onMessageHandler };
+export { onMessageHandlerFactory };
