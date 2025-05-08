@@ -5,6 +5,9 @@ const sonidoReintentando = new Audio('./static/sounds/reconnecting.mp3');
 const sonidoError = new Audio('./static/sounds/error.mp3');
 const sonidoFallido = new Audio('./static/sounds/failed.mp3');
 
+let usuarioActivo = false;
+document.addEventListener("click", () => usuarioActivo = true, { once: true });
+
 const WS_URL = "ws://localhost:8765"; // Ajusta esta URL según tu servidor WebSocket
 const sockets = {}; // Objeto para almacenar sockets por clave symbol_interval
 
@@ -32,7 +35,9 @@ function conectarWebSocket(symbol, interval, onMessageHandler, onStatusChange = 
         onStatusChange('connecting');
 
         socket.onopen = () => {
-            sonidoConectado.play();
+            if (usuarioActivo) {
+                sonidoConectado.play().catch(e => console.warn("🔈 No se pudo reproducir sonido:", e));
+            }
             console.log(`🟢 Conectado WebSocket para ${key}`);
             intentos = 0;
             onStatusChange('connected');
