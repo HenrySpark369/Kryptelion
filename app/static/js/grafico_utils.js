@@ -51,6 +51,7 @@ function crearChart(ctx) {
         options: {
             animation: false,
             responsive: true,
+            maintainAspectRatio: false,
             scales: {
                 y: {
                     position: 'left',
