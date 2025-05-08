@@ -84,6 +84,12 @@ obtener_datos_historicos(["BTCUSDT"], ["1m", "5m"], "datos_historicos.db")
 # También puedes usar parámetros start_time y end_time opcionalmente
 ```
 
+### 2.1 Exportar datos como CSV o JSON
+```python
+from data.exporter import exportar_datos
+exportar_datos("BTCUSDT", "1m", formato="csv", salida="export_btc.csv")
+```
+
 ### 3. Ejecutar un backtest vía API
 ```bash
 curl -X POST http://localhost:5000/backtest \
@@ -156,6 +162,7 @@ Este proyecto aplica varios patrones de software:
 
 - `sma_cruce.py`: Cruce de medias móviles simples.
 - `ml_predictor.py`: Modelo ML (placeholder para predicción).
+- `ml_predictor.py`: Placeholder actualmente. En versiones futuras se integrará con `scikit-learn` y pipelines de entrenamiento para señales predictivas.
 - Sistema extensible vía `estrategias/factory.py`.
 
 Las estrategias pueden integrarse con el sistema de difusión en tiempo real mediante `AsyncBroadcast`, para enviar señales directamente al frontend.
@@ -168,6 +175,19 @@ Las estrategias pueden integrarse con el sistema de difusión en tiempo real med
 - Carga inicial optimizada usando rangos `startTime` y `endTime`
 - WebSocket en tiempo real con reconexión segura y soporte para múltiples clientes
 - Panel de backtesting interactivo vía `/backtest-ui`
+
+### 📁 JS Modular para Visualización
+
+La lógica de la visualización está dividida en módulos dentro de `static/js/`:
+
+- `ws-handler.js`: gestiona conexión y reconexión WebSocket.
+- `grafico_utils.js`: renderiza el gráfico de velas y volumen.
+- `indicadores.js`: calcula y aplica SMAs, EMAs, y otros indicadores.
+- `procesador_kline.js`: transforma datos Kline para su uso en el gráfico.
+- `estrategias.js`: integra señales de estrategia en el frontend.
+- `session_utils.js`: mantiene estado de sesión y configuración.
+
+Esto permite escalabilidad, reutilización y mantenimiento más sencillo del frontend.
 
 ---
 
@@ -206,6 +226,8 @@ BINANCE_WS_URL=wss://stream.binancefuture.com/ws
 Si estás en Mac M1/M2 y deseas usar TensorFlow localmente, instala:
 pip install -r requirements.macos.txt
 
+Este servicio permite multiplexado de múltiples clientes con reconexión automática y gestión de estado por símbolo/intervalo.
+
 ---
 
 ## 🔐 Seguridad y Buenas Prácticas
@@ -231,11 +253,23 @@ Consulta:
 
 ## 🌐 Futuro y Mejoras
 
-- Migración total a PostgreSQL (en progreso)
+- Base de datos PostgreSQL integrada y operativa
 - Añadir indicadores técnicos avanzados (MACD, Ichimoku)
 - Integrar modelos ML y optimización con algoritmos genéticos
 - Gestión de riesgo por orden en tiempo real
 - Despliegue en Google Cloud Platform (VM + Base de datos)
+- Optimización de estrategias con Grid Search y validación cruzada
+
+---
+
+## 🗺️ Diagrama de Arquitectura
+
+![Arquitectura de Kryptelion](static/docs/arquitectura_kryptelion.png)
+
+Este diagrama muestra el flujo entre componentes:
+- Binance WebSocket → `websocket/client.py` → `wsbridge` → `frontend`
+- Backend Flask con rutas REST para backtesting, métricas y órdenes
+- Sistema desacoplado con patrones de diseño aplicados por módulo
 
 ---
 
