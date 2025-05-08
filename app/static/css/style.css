@@ -36,8 +36,9 @@ h1 {
 
 canvas {
     display: block;
-    margin: auto;
-    max-width: 100%;
+    margin: 0 auto;
+    width: 100vw;
+    height: auto;
     border: 1px solid #ccc;
     background-color: #fff;
     padding: 10px;
