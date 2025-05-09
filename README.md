@@ -1,5 +1,7 @@
 # 🧠 Bot de Trading con Flask, Binance y Visualización en Tiempo Real
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/HenrySpark369/Kryptelion)
+
 Este proyecto es un sistema completo de análisis, backtesting y ejecución en tiempo real de estrategias de trading algorítmico usando la API de Binance para derivados. Está construido con Python y Flask, e incluye una visualización tipo TradingView con datos históricos y en vivo mediante WebSocket.
 
 ---
