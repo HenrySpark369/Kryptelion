@@ -1,5 +1,4 @@
-// ws-manager.js
-// 📡 Manejador de múltiples WebSockets para diferentes símbolos e intervalos
+// ws-manager-hibrido.js
 const sonidoConectado = new Audio('./static/sounds/connected.mp3');
 const sonidoReintentando = new Audio('./static/sounds/reconnecting.mp3');
 const sonidoError = new Audio('./static/sounds/error.mp3');
@@ -8,15 +7,13 @@ const sonidoFallido = new Audio('./static/sounds/failed.mp3');
 let usuarioActivo = false;
 document.addEventListener("click", () => usuarioActivo = true, { once: true });
 
-const WS_URL = "ws://localhost:8765"; // Ajusta esta URL según tu servidor WebSocket
-const sockets = {}; // Objeto para almacenar sockets por clave symbol_interval
+const WS_URL = "ws://localhost:8765";
+const sockets = {};
 
-// 🔑 Crea una clave única basada en símbolo e intervalo
 function crearKey(symbol, interval) {
     return `${symbol}_${interval}`;
 }
 
-// 🚀 Conecta un nuevo WebSocket (o reusa uno existente) para un símbolo/intervalo
 function conectarWebSocket(symbol, interval, onMessageHandler, onStatusChange = () => {}) {
     const key = crearKey(symbol, interval);
     const MAX_REINTENTOS = 5;
@@ -36,7 +33,7 @@ function conectarWebSocket(symbol, interval, onMessageHandler, onStatusChange = 
 
         socket.onopen = () => {
             if (usuarioActivo) {
-                sonidoConectado.play().catch(e => console.warn("🔈 No se pudo reproducir sonido:", e));
+                sonidoConectado.play().catch(e => console.warn("🔈 Error de sonido:", e));
             }
             console.log(`🟢 Conectado WebSocket para ${key}`);
             intentos = 0;
@@ -44,7 +41,6 @@ function conectarWebSocket(symbol, interval, onMessageHandler, onStatusChange = 
         };
 
         socket.onmessage = (event) => {
-            console.log("📊 Datos recibidos del WebSocket:", event.data);
             if (typeof onMessageHandler === "function") {
                 onMessageHandler(event);
             } else {
@@ -52,9 +48,9 @@ function conectarWebSocket(symbol, interval, onMessageHandler, onStatusChange = 
             }
         };
 
-        socket.onerror = err => {
+        socket.onerror = (err) => {
             sonidoError.play();
-            console.error(`❌ Error en ${key}:`, err);
+            console.error(`❌ Error en WebSocket ${key}:`, err);
             onStatusChange('error');
         };
 
@@ -65,7 +61,7 @@ function conectarWebSocket(symbol, interval, onMessageHandler, onStatusChange = 
                 intentos += 1;
                 sonidoReintentando.play();
                 onStatusChange('reconnecting');
-                setTimeout(() => intentarConexion(), delay);
+                setTimeout(intentarConexion, delay);
             } else {
                 console.error(`❌ Se alcanzó el máximo de reintentos para ${key}.`);
                 sonidoFallido.play();
@@ -79,7 +75,6 @@ function conectarWebSocket(symbol, interval, onMessageHandler, onStatusChange = 
     return sockets[key];
 }
 
-// ❌ Cierra y elimina el WebSocket asociado a un símbolo/intervalo
 function cerrarWebSocket(symbol, interval) {
     const key = crearKey(symbol, interval);
     if (sockets[key]) {
@@ -97,12 +92,14 @@ function cerrarTodosLosSockets() {
     });
 }
 
-
-// 🔄 Reinicia el WebSocket para un símbolo/intervalo centralizando la lógica de reconexión
 function reiniciarStream(symbol, interval, onMessageHandler, onStatusChange = () => {}) {
     cerrarWebSocket(symbol, interval);
     conectarWebSocket(symbol, interval, onMessageHandler, onStatusChange);
 }
 
-// Exporta las funciones principales
-export { conectarWebSocket, cerrarWebSocket, cerrarTodosLosSockets, reiniciarStream };
+export {
+    conectarWebSocket,
+    cerrarWebSocket,
+    cerrarTodosLosSockets,
+    reiniciarStream
+};
