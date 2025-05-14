@@ -1,357 +1,97 @@
-import { aplicarEstilosModo } from './grafico_utils.js';
-import { cargarIntervalos, INTERVALOS_VALIDOS, INTERVALOS_LABELS } from './constants.js';
-import { exportarJSON, exportarCSV, exportarABackend } from './export_utils.js';
-import { activarModoDebug } from './debug_utils.js';
-import { mostrarMensaje, obtenerColorAnotacion, actualizarColoresAnotaciones } from './ui_utils.js';
-import { obtenerDatosHistoricos } from './data_loader.js';
-import { conectarWebSocket, cerrarWebSocket, cerrarTodosLosSockets, reiniciarStream } from './ws-handler.js';
-import { crearChart, actualizarChart, actualizarGraficoHistorico } from './grafico_utils.js';
+// === live-chart-hibrido.js ===
+import { calculateSMA, reapplySMAs, actualizarSMA } from './indicadores.js';
+import { fetchHistoricalCandles } from './data_loader.js';
+import { reiniciarStream, cerrarTodosLosSockets } from './ws-handler.js';
+import { loadSavedSMAs, saveSMAs, actualizarResumen } from './session_utils.js';
+import {
+  bindSymbolSelector, bindIntervalSelector, bindSmaControls,
+  populateIntervalSelector, actualizarColoresAnotaciones,
+  bindExportButtons, bindModoOscuro, bindColorInputs
+} from './ui_utils.js';
+
+import { ChartManager } from './chart_manager.js';
+
+import { estrategiaFactory } from './estrategias.js';
+
 import { onMessageHandlerFactory } from './procesador_kline.js';
-import { analizarEstrategiaBackendFactory } from './estrategias.js';
-import { limpiarGrafico, actualizarResumen, registrarOrden, agregarOrdenAHistorial } from './session_utils.js';
-import { actualizarSMA } from './indicadores.js';
 
-let chart;
+let chartManager;
+let cruceSignals = [];
 
-const SELECTOR_SYMBOL = document.getElementById("selectorSymbol");
-const SELECTOR_INTERVAL = document.getElementById("selectorInterval");
+async function initializeChart(symbol, interval) {
+  cerrarTodosLosSockets();
+  chartManager.resetChart();
+  
+  const candles = await fetchHistoricalCandles(symbol, interval);
+  chartManager.setSymbol(symbol);
+  chartManager.setInterval(interval);
+  chartManager.loadData(candles);
+  chartManager.setSMAs(loadSavedSMAs());
+  startLiveStream(symbol, interval);
+}
 
-// --- Modo oscuro ---
-function aplicarModoOscuro(chart) {
-    const body = document.body;
-    const chartContainer = document.getElementById("chart-container");
+function startLiveStream(symbol, interval) {
+  const evaluarEstrategia = estrategiaFactory(chartManager, {
+    tipo: 'SMA',
+    periodo: chartManager.activeSMAs[0] || 20,
+    modo: 'precio-vs-sma'
+  });
 
-    body.classList.toggle("modo-oscuro");
-    if (chartContainer) chartContainer.classList.toggle("modo-oscuro");
+  const onMessageHandler = onMessageHandlerFactory({
+    chartManager,
+    actualizarChart: (chart, candle, esFinal) => {
+      chartManager.updateWithLiveCandle(candle);
+    },
+    actualizarSMA: () => {
+      reapplySMAs(chartManager.chart, chartManager.activeSMAs);
+    },
+    analizarEstrategiaBackend: () => evaluarEstrategia({ time: Date.now() }) // usa un mock si no hay vela real
+  });
 
-    const esModoOscuro = body.classList.contains("modo-oscuro");
-    localStorage.setItem("modoOscuro", esModoOscuro ? "true" : "false");
+  reiniciarStream(symbol, interval, onMessageHandler);
+}
 
-    if (chart) {
-        if (esModoOscuro) {
-            chart.options.plugins.legend.labels.color = "#fff";
-            chart.options.scales.x.ticks.color = "#fff";
-            chart.options.scales.y.ticks.color = "#fff";
-            if (chart.options.plugins.tooltip) {
-                chart.options.plugins.tooltip.backgroundColor = "#333";
-                chart.options.plugins.tooltip.titleColor = "#fff";
-                chart.options.plugins.tooltip.bodyColor = "#fff";
-                chart.options.plugins.tooltip.borderColor = "#555";
-                chart.options.plugins.tooltip.borderWidth = 1;
-            }
-            chart.options.plugins.background = chart.options.plugins.background || {};
-            chart.options.plugins.background.color = "#1e1e1e";
-            chart.options.backgroundColor = "#1e1e1e";
-        } else {
-            // Restaurar colores para modo claro
-            chart.options.plugins.legend.labels.color = "#000";
-            chart.options.scales.x.ticks.color = "#000";
-            chart.options.scales.y.ticks.color = "#000";
-            if (chart.options.plugins.tooltip) {
-                chart.options.plugins.tooltip.backgroundColor = "#fff";
-                chart.options.plugins.tooltip.titleColor = "#000";
-                chart.options.plugins.tooltip.bodyColor = "#000";
-                chart.options.plugins.tooltip.borderColor = "#ccc";
-                chart.options.plugins.tooltip.borderWidth = 1;
-            }
-            chart.options.plugins.background = chart.options.plugins.background || {};
-            chart.options.plugins.background.color = "#ffffff";
-            chart.options.backgroundColor = "#ffffff";
-        }
-        aplicarEstilosModo(chart, esModoOscuro);
-        chart.update();
+document.addEventListener('DOMContentLoaded', async () => {
+  await populateIntervalSelector();
 
-        const elementosUI = [SELECTOR_SYMBOL, SELECTOR_INTERVAL];
-        elementosUI.forEach(elem => {
-            if (elem) {
-                elem.style.backgroundColor = esModoOscuro ? "#2c2c2c" : "#fff";
-                elem.style.color = esModoOscuro ? "#fff" : "#000";
-                elem.style.border = esModoOscuro ? "1px solid #555" : "1px solid #ccc";
-            }
-        });
+  const ctx = document.getElementById('candlestickChart')?.getContext('2d');
+  const volumeCtx = document.getElementById('volumeChart')?.getContext('2d');
+  if (!ctx || !volumeCtx) return console.error("❌ Canvases no encontrados.");
 
-        // Aplica modo oscuro a botones, selects y controles comunes
-        const botones = document.querySelectorAll("button, select, input[type='button'], input[type='submit']");
-        botones.forEach(btn => {
-            btn.style.backgroundColor = esModoOscuro ? "#2c2c2c" : "#fff";
-            btn.style.color = esModoOscuro ? "#fff" : "#000";
-            btn.style.border = esModoOscuro ? "1px solid #555" : "1px solid #ccc";
-        });
+  const currentSymbol = localStorage.getItem('symbol') || 'BTCUSDT';
+  const currentInterval = localStorage.getItem('interval') || '15m';
+  chartManager = new ChartManager(ctx, volumeCtx, currentSymbol, currentInterval);
+  chartManager.setSMAs(loadSavedSMAs());
+
+  // Vincular controles UI
+  bindSymbolSelector((symbol) => {
+    localStorage.setItem('symbol', symbol);
+    initializeChart(symbol, chartManager.interval);
+  });
+
+  bindIntervalSelector((interval) => {
+    localStorage.setItem('interval', interval);
+    initializeChart(chartManager.symbol, interval);
+  });
+
+  bindSmaControls({
+    onAdd: (period) => {
+      chartManager.addSMA(period);
+      saveSMAs(chartManager.activeSMAs);
+    },
+    onRemove: (period) => {
+      chartManager.removeSMA(period);
+      saveSMAs(chartManager.activeSMAs);
     }
+  });
 
-    const toggleIcon = document.getElementById("toggleModoOscuro");
-    if (toggleIcon) {
-        toggleIcon.textContent = esModoOscuro ? "☀️" : "🌙";
-    }
-}
+  bindExportButtons(cruceSignals);
+  bindModoOscuro();
+  bindColorInputs(actualizarColoresAnotaciones);
 
-// Restaurar modo oscuro si estaba activado
-if (!localStorage.getItem("modoOscuro")) {
-    localStorage.setItem("modoOscuro", "true");
-}
-if (localStorage.getItem("modoOscuro") === "true") {
-    setTimeout(() => {
-        const ctx = document.getElementById('liveChart')?.getContext('2d');
-        if (!ctx) return;
-        if (chart) {
-            chart.destroy();
-        }
-        chart = crearChart(ctx);
-        aplicarModoOscuro(chart);
-    }, 100);
-}
-
-const toggleOscuroBtn = document.getElementById("toggleModoOscuro");
-if (toggleOscuroBtn) {
-    toggleOscuroBtn.addEventListener("click", () => {
-        aplicarModoOscuro(chart);
-    });
-
-    // Actualiza el ícono del botón en la carga inicial
-    document.addEventListener("DOMContentLoaded", () => {
-        const esOscuro = document.body.classList.contains("modo-oscuro");
-        toggleOscuroBtn.textContent = esOscuro ? "☀️" : "🌙";
-        (async () => {
-            await cargarIntervalos();
-        })();
-
-        const Chart = window.Chart;
-
-        const cruceSignals = [];
-
-        // --- Selectores de símbolo e intervalo ---
-        const SELECTOR_SYMBOL = document.getElementById("selectorSymbol");
-        const SELECTOR_INTERVAL = document.getElementById("selectorInterval");
-        const ultimoInterval = localStorage.getItem("ultimoInterval");
-
-        // Limpia y repuebla el selector de intervalos basado en los datos cargados
-        if (SELECTOR_INTERVAL) {
-            SELECTOR_INTERVAL.innerHTML = '';
-            INTERVALOS_VALIDOS.forEach(intervalo => {
-                const opt = document.createElement('option');
-                opt.value = intervalo;
-                opt.textContent = INTERVALOS_LABELS[intervalo];
-                SELECTOR_INTERVAL.appendChild(opt);
-            });
-            if (ultimoInterval && INTERVALOS_VALIDOS.includes(ultimoInterval)) {
-                SELECTOR_INTERVAL.value = ultimoInterval;
-            }
-        }
-        // --- Restaurar última selección desde localStorage ---
-        const ultimoSymbol = localStorage.getItem("ultimoSymbol");
-        if (ultimoSymbol) SELECTOR_SYMBOL.value = ultimoSymbol;
-
-        // Asegura que el canvas exista antes de usarlo
-        const ctx = document.getElementById('liveChart')?.getContext('2d');
-        if (!ctx) {
-            console.error("🎯 No se encontró el canvas #liveChart");
-            throw new Error("Canvas 'liveChart' no encontrado");
-        }
-        // Destruye el gráfico anterior si existe antes de crear uno nuevo
-        if (chart) {
-            chart.destroy();
-        }
-        chart = crearChart(ctx);
-
-        const analizarEstrategiaBackend = analizarEstrategiaBackendFactory(chart);
-        const onMessageHandler = onMessageHandlerFactory(chart, (data) => actualizarChart(chart, data), actualizarSMA, analizarEstrategiaBackend);
-
-        // Carga el histórico inicial desde el backend antes de conectar el WebSocket
-        cargarHistoricoInicial(chart).then((res) => {
-            if (res) {
-                const { symbol, interval } = res;
-                reiniciarStream(symbol, interval, onMessageHandler);
-            }
-        });
-
-        // Permite al usuario cargar el histórico y conectar WebSocket tras seleccionar símbolo/intervalo
-        function handleCambioSimbolo() {
-            localStorage.setItem("ultimoSymbol", SELECTOR_SYMBOL.value);
-            localStorage.setItem("ultimoInterval", SELECTOR_INTERVAL.value);
-
-            // --- Nuevo: destruye el gráfico anterior y crea uno nuevo ---
-            const ctx = document.getElementById('liveChart')?.getContext('2d');
-            if (!ctx) {
-                console.error("🎯 No se encontró el canvas #liveChart");
-                return;
-            }
-            if (chart) {
-                chart.destroy();
-            }
-            chart = crearChart(ctx);
-
-            cargarHistoricoInicial(chart).then((res) => {
-                if (res) {
-                    const { symbol, interval } = res;
-                    reiniciarStream(symbol, interval, onMessageHandler);
-                }
-            });
-        }
-
-        const cargarHistoricoBtn = document.getElementById("cargarHistoricoBtn");
-        if (cargarHistoricoBtn) {
-            cargarHistoricoBtn.addEventListener("click", handleCambioSimbolo);
-        }
-
-        // Exportar señales
-        const exportCrucesBtn = document.getElementById("exportCruces");
-        if (exportCrucesBtn) {
-            exportCrucesBtn.addEventListener("click", function () {
-                exportarJSON(cruceSignals);
-            });
-        }
-
-        const exportCSVBtn = document.getElementById("exportCSV");
-        if (exportCSVBtn) {
-            exportCSVBtn.addEventListener("click", function () {
-                exportarCSV(cruceSignals);
-            });
-        }
-
-        const enviarBackendBtn = document.getElementById("enviarBackend");
-        if (enviarBackendBtn) {
-            enviarBackendBtn.addEventListener("click", function () {
-                exportarABackend({ cruces: cruceSignals, tipo: "json" }, "/exportar_cruces");
-            });
-        }
-
-        const descargarCSVBackendBtn = document.getElementById("descargarCSVBackend");
-        if (descargarCSVBackendBtn) {
-            descargarCSVBackendBtn.addEventListener("click", function () {
-                const filtroTipoElem = document.getElementById("filtroTipo");
-                const tipo = filtroTipoElem?.value;
-                const url = tipo ? `/cruces_csv?tipo=${tipo}` : "/cruces_csv";
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = "cruces_backend.csv";
-                a.click();
-            });
-        }
-
-        // --- Resumen visual de señales ejecutadas (contador) ---
-        let contadorCompra = parseInt(localStorage.getItem("contadorCompra")) || 0;
-        let contadorVenta = parseInt(localStorage.getItem("contadorVenta")) || 0;
-        actualizarResumen();
-
-        ["colorCompra", "colorVenta"].forEach(id => {
-            const input = document.getElementById(id);
-            if (input) {
-                input.addEventListener("input", actualizarColoresAnotaciones);
-            }
-        });
-
-        function esSimboloValido(symbol) {
-            return SYMBOLS_VALIDOS.includes(symbol);
-        }
-
-        function esIntervaloValido(interval) {
-            return INTERVALOS_VALIDOS.includes(interval);
-        }
-
-        window.addEventListener("beforeunload", () => {
-            cerrarTodosLosSockets();
-        });
-
-        const LiveChartController = {
-            onMessageHandler,
-            reiniciarStream,
-            handleCambioSimbolo,
-            cargarHistoricoInicial,
-            chart,
-            SELECTOR_SYMBOL,
-            SELECTOR_INTERVAL
-        };
-        window.LiveChartController = LiveChartController;
-    });
-}
-
-// Carga el histórico inicial desde el backend antes de conectar el WebSocket
-async function cargarHistoricoInicial(chart) {
-    try {
-        // Obtener los selectores dentro de la función para asegurar el ámbito correcto
-        const SELECTOR_SYMBOL = document.getElementById("selectorSymbol");
-        const SELECTOR_INTERVAL = document.getElementById("selectorInterval");
-        const symbol = SELECTOR_SYMBOL?.value || "btcusdt";
-        const interval = SELECTOR_INTERVAL?.value || "1m";
-        const klines = await obtenerDatosHistoricos(symbol, interval);
-        if (klines.length === 0) {
-            if (mensajeSinDatos) mensajeSinDatos.classList.remove("d-none");
-            return;
-        } else {
-            if (mensajeSinDatos) mensajeSinDatos.classList.add("d-none");
-        }
-
-        mostrarMensaje(`📈 Cargando gráfico para ${symbol} (${interval})...`);
-        actualizarGraficoHistorico(chart, klines, symbol, interval);
-        return { symbol, interval };
-    } catch (error) {
-        console.error("Error al cargar histórico inicial:", error);
-    }
-}
-
-// Botón para exportar señales de cruce
-const exportCrucesBtn = document.getElementById("exportCruces");
-if (exportCrucesBtn) {
-    exportCrucesBtn.addEventListener("click", function () {
-        exportarJSON(cruceSignals);
-    });
-}
-
-// Botón para exportar señales de cruce en CSV
-const exportCSVBtn = document.getElementById("exportCSV");
-if (exportCSVBtn) {
-    exportCSVBtn.addEventListener("click", function () {
-        exportarCSV(cruceSignals);
-    });
-}
-
-// Botón para exportar señales de cruce al backend usando exportarABackend
-const enviarBackendBtn = document.getElementById("enviarBackend");
-if (enviarBackendBtn) {
-    enviarBackendBtn.addEventListener("click", function () {
-        exportarABackend({ cruces: cruceSignals, tipo: "json" }, "/exportar_cruces");
-    });
-}
-
-const descargarCSVBackendBtn = document.getElementById("descargarCSVBackend");
-if (descargarCSVBackendBtn) {
-    descargarCSVBackendBtn.addEventListener("click", function () {
-        const filtroTipoElem = document.getElementById("filtroTipo");
-        const tipo = filtroTipoElem?.value;
-        const url = tipo ? `/cruces_csv?tipo=${tipo}` : "/cruces_csv";
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "cruces_backend.csv";
-        a.click();
-    });
-}
-// --- Resumen visual de señales ejecutadas (contador) ---
-let contadorCompra = parseInt(localStorage.getItem("contadorCompra")) || 0;
-let contadorVenta = parseInt(localStorage.getItem("contadorVenta")) || 0;
-actualizarResumen();
-
-// Observa cambios en el input de color y actualiza anotaciones existentes
-["colorCompra", "colorVenta"].forEach(id => {
-    const input = document.getElementById(id);
-    if (input) {
-        input.addEventListener("input", actualizarColoresAnotaciones);
-    }
+  cerrarTodosLosSockets();
+  await initializeChart(currentSymbol, currentInterval);
+  actualizarResumen();
 });
 
-function esSimboloValido(symbol) {
-    return SYMBOLS_VALIDOS.includes(symbol);
-}
-
-function esIntervaloValido(interval) {
-    return INTERVALOS_VALIDOS.includes(interval);
-}
-
-// const modoDebug = false;
-// if (modoDebug) {
-//     activarModoDebug(chart, "BTCUSDT", "1m", onMessageHandler);
-// }
-
-// Cierra todos los WebSockets abiertos al salir de la página
-window.addEventListener("beforeunload", () => {
-    cerrarTodosLosSockets();
-});
+window.addEventListener("beforeunload", () => cerrarTodosLosSockets());
