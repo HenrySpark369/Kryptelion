@@ -1,23 +1,16 @@
+// === data_loader.js ===
 
+export async function fetchHistoricalCandles(symbol, interval, limit = 75) {
+  const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+  const res = await fetch(url);
+  const klines = await res.json();
 
-
-export async function obtenerDatosHistoricos(symbol, interval, dias = 3) {
-    try {
-        const now = Date.now();
-        const startTime = now - dias * 24 * 60 * 60 * 1000;
-        const endTime = now;
-
-        const url = `/historico?symbol=${symbol}&interval=${interval}&limit=100&startTime=${startTime}&endTime=${endTime}`;
-        const res = await fetch(url);
-
-        if (!res.ok) {
-            throw new Error(`Error en la solicitud: ${res.statusText}`);
-        }
-
-        const data = await res.json();
-        return data.klines || [];
-    } catch (error) {
-        console.error("Error al obtener datos históricos:", error);
-        return [];
-    }
+  return klines.map(k => ({
+    x: k[0],
+    o: parseFloat(k[1]),
+    h: parseFloat(k[2]),
+    l: parseFloat(k[3]),
+    c: parseFloat(k[4]),
+    v: parseFloat(k[5])
+  }));
 }
