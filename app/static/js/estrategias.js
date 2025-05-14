@@ -1,43 +1,61 @@
-function analizarEstrategiaBackendFactory(chart) {
-    return function () {
-        if (!chart || chart.data.datasets.length < 3) return null;
+// === estrategias.js ===
 
-        const precios = chart.data.datasets[0].data;
-        const sma = chart.data.datasets[2].data;
+/**
+ * Crea una estrategia de señales basada en comparación con indicadores
+ * @param {Object} config - Configuración de la estrategia
+ * @param {string} config.tipo - Tipo de indicador ('SMA', 'EMA', etc.)
+ * @param {number} config.periodo - Periodo del indicador a evaluar
+ * @param {string} [config.modo='precio-vs-sma'] - Modo de comparación
+ * @returns {Function} - Función evaluadora: (candle) => señal | null
+ */
+function estrategiaFactory(chartManager, config = {}) {
+  const { tipo = 'SMA', periodo = 20, modo = 'precio-vs-sma' } = config;
 
-        const i = precios.length - 1;
-        if (i < 1) return null;
+  return function evaluar(candle) {
+    if (!chartManager || !chartManager.getUltimosPrecios || !chartManager.getSMAForPeriod) {
+      console.warn("❌ ChartManager incompleto o no preparado");
+      return null;
+    }
 
-        const precioActual = precios[i]?.y;
-        const smaActual = sma[i]?.y;
-        const smaAnterior = sma[i - 1]?.y;
-        const precioAnterior = precios[i - 1]?.y;
+    const precios = chartManager.getUltimosPrecios();
+    const sma = chartManager.getSMAForPeriod(periodo);
 
-        if (
-            precioActual == null || smaActual == null ||
-            precioAnterior == null || smaAnterior == null
-        ) return null;
+    const i = precios.length - 1;
+    if (i < 1 || sma.length < 2) return null;
 
-        if (precioAnterior < smaAnterior && precioActual > smaActual) {
-            console.log("🔼 Señal de compra detectada");
-            return {
-                tipo: "compra",
-                timestamp: Date.now(),
-                precio: precioActual,
-                sma: smaActual
-            };
-        } else if (precioAnterior > smaAnterior && precioActual < smaActual) {
-            console.log("🔽 Señal de venta detectada");
-            return {
-                tipo: "venta",
-                timestamp: Date.now(),
-                precio: precioActual,
-                sma: smaActual
-            };
-        }
+    const precioActual = precios[i];
+    const precioAnterior = precios[i - 1];
+    const smaActual = sma[i];
+    const smaAnterior = sma[i - 1];
 
-        return null;
-    };
+    if ([precioActual, precioAnterior, smaActual, smaAnterior].some(v => v == null)) return null;
+
+    if (modo === 'precio-vs-sma') {
+      if (precioAnterior < smaAnterior && precioActual > smaActual) {
+        return {
+          tipo: 'compra',
+          timestamp: candle.time,
+          precio: precioActual,
+          indicador: smaActual,
+          periodo,
+          metodo: tipo
+        };
+      } else if (precioAnterior > smaAnterior && precioActual < smaActual) {
+        return {
+          tipo: 'venta',
+          timestamp: candle.time,
+          precio: precioActual,
+          indicador: smaActual,
+          periodo,
+          metodo: tipo
+        };
+      }
+    }
+
+    // Puedes añadir más modos aquí (ej: cruce de dos SMAs)
+
+    return null;
+  };
 }
 
-export { analizarEstrategiaBackendFactory };
+export { estrategiaFactory };
