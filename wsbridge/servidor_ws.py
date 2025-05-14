@@ -13,8 +13,8 @@ async def manejar_cliente(websocket, path=None):
     manager.registrar_cliente(websocket)
     print(f"[WS] Cliente conectado: {websocket.remote_address}")
     try:
-        async for _ in websocket:
-            pass  # Escuchar mensajes ping/pong u otros del cliente si es necesario
+        while True:
+            await asyncio.sleep(10)  # Mantener la conexión viva sin necesidad de recibir datos
     except websockets.exceptions.ConnectionClosed:
         print(f"[WS] Cliente desconectado: {websocket.remote_address}")
     finally:
