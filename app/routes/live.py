@@ -18,41 +18,50 @@ bp = Blueprint("live", __name__)
 
 ws_manager = WebSocketManager()
 
-active_ws = None
+active_ws_dict = {}
 
 @bp.route("/stream")
 def stream():
+    from queue import Queue
     import time
 
     symbol = request.args.get("symbol", "BTCUSDT").upper()
     interval = request.args.get("interval", "1m")
-    valid_intervals = VALID_INTERVALS
 
     if not symbol.isalnum() or not (6 <= len(symbol) <= 12):
         return Response("Invalid symbol parameter", status=400)
 
-    if interval not in valid_intervals:
+    if interval not in VALID_INTERVALS:
         return Response("Invalid interval parameter", status=400)
 
+    cliente_id = f"{request.remote_addr}-{symbol}-{interval}"
+    q = Queue(maxsize=1000)
+    ws_manager.registrar_cliente(cliente_id, stream=q)
+
     def callback(kline):
-        data = {
+        salida = {
             "t": kline["t"],
             "c": kline["c"],
             "v": kline["v"],
             "x": kline["x"]
         }
-        asyncio.run(ws_manager.enviar_a_todos(data))
+        asyncio.run(ws_manager.enviar_a_todos(salida))
+        try:
+            q.put_nowait(f"data: {json.dumps(salida)}\n\n".encode("utf-8"))
+        except:
+            pass
 
-    global active_ws
-    if active_ws and active_ws.is_running():
-        active_ws.stop()
-        while active_ws.is_running():
-            time.sleep(0.1)
+    global active_ws_dict
+    clave = f"{symbol.lower()}_{interval}"
+    if clave in active_ws_dict:
+        active_ws_dict[clave].stop()
+        del active_ws_dict[clave]
 
     try:
         active_ws = BinanceWebSocket(symbol=symbol, interval=interval, callback=callback)
         import threading
         threading.Thread(target=active_ws.start, daemon=True).start()
+        active_ws_dict[clave] = active_ws
     except Exception as e:
         error_msg = f"data: {json.dumps({'error': str(e)})}\n\n".encode("utf-8")
         def error_stream():
@@ -60,12 +69,16 @@ def stream():
         return Response(stream_with_context(error_stream()), mimetype="text/event-stream")
 
     def event_stream():
-        ws_manager.registrar_cliente(request)
-        try:
-            while True:
-                time.sleep(1)  # Keep-alive or heartbeat
-        except GeneratorExit:
-            ws_manager.eliminar_cliente(request)
+        while True:
+            try:
+                msg = q.get()
+                yield msg
+            except GeneratorExit:
+                ws_manager.eliminar_cliente(cliente_id)
+                if clave in active_ws_dict:
+                    active_ws_dict[clave].stop()
+                    del active_ws_dict[clave]
+                break
 
     return Response(stream_with_context(event_stream()), mimetype="text/event-stream")
 
@@ -172,6 +185,8 @@ def bot_en_vivo():
         return Response("Invalid interval parameter", status=400)
 
     q = Queue(maxsize=1000)
+    cliente_id = f"{request.remote_addr}-{symbol}"
+    ws_manager.registrar_cliente(cliente_id, stream=q)
     bot = Bot(estrategia=estrategia_nombre)
     buffer = []
 
@@ -204,25 +219,29 @@ def bot_en_vivo():
         except Full:
             pass
 
+    global active_ws_dict
+    clave = f"{symbol.lower()}_{interval}"
+
+    if clave in active_ws_dict:
+        active_ws_dict[clave].stop()
+        del active_ws_dict[clave]
+
     def event_stream():
         while True:
             try:
                 msg = q.get()
                 yield msg
             except GeneratorExit:
-                if active_ws and active_ws.is_running():
-                    active_ws.stop()
+                ws_manager.eliminar_cliente(cliente_id)
+                if clave in active_ws_dict:
+                    active_ws_dict[clave].stop()
+                    del active_ws_dict[clave]
                 break
-
-    global active_ws
-    if active_ws and active_ws.is_running():
-        active_ws.stop()
-        while active_ws.is_running():
-            time.sleep(0.1)
 
     try:
         active_ws = BinanceWebSocket(symbol=symbol, interval=interval, callback=callback)
         threading.Thread(target=active_ws.start, daemon=True).start()
+        active_ws_dict[clave] = active_ws
     except Exception as e:
         error_msg = f"data: {json.dumps({'error': str(e)})}\n\n".encode("utf-8")
         def error_stream():
