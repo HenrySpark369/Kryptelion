@@ -1,4 +1,4 @@
-function onMessageHandlerFactory({ chart, actualizarChart, actualizarSMA, analizarEstrategiaBackend }) {
+function onMessageHandlerFactory({ chartManager, actualizarChart, actualizarSMA, analizarEstrategiaBackend }) {
     return function onMessageHandler(event) {
         let kline;
         try {
@@ -21,13 +21,14 @@ function onMessageHandlerFactory({ chart, actualizarChart, actualizarSMA, analiz
             h: parseFloat(h),
             l: parseFloat(l),
             c: parseFloat(c),
-            v: parseFloat(v)
+            v: parseFloat(v),
+            time: t
         };
 
         const esVelaCerrada = x === true;
 
         if (typeof actualizarChart === "function") {
-            actualizarChart(chart, candle, esVelaCerrada);
+            actualizarChart(chartManager.chart, candle, esVelaCerrada);
         }
 
         if (esVelaCerrada && typeof actualizarSMA === "function") {
@@ -35,7 +36,10 @@ function onMessageHandlerFactory({ chart, actualizarChart, actualizarSMA, analiz
         }
 
         if (esVelaCerrada && typeof analizarEstrategiaBackend === "function") {
-            analizarEstrategiaBackend();
+            const señal = analizarEstrategiaBackend();
+            if (señal) {
+                chartManager.anotarSeñal(señal);
+            }
         }
     };
 }
