@@ -106,6 +106,11 @@ class BinanceWebSocket:
                 try:
                     ws_logger.info("Intentando conectar al WebSocket...")
                     self.ws.run_forever(ping_interval=30, ping_timeout=10)
+                    try:
+                        self.ws.close()
+                    except:
+                        pass
+                    self.ws = None
                     reconnect_attempts = 0
                 except Exception as e:
                     ws_logger.exception(f"Error en WebSocket: {e}")
@@ -133,7 +138,7 @@ class BinanceWebSocket:
                 seconds = self.seconds_since_last_message()
                 if seconds and seconds > 60:
                     logging.warning(f"Sin mensajes del WebSocket desde hace {int(seconds)} segundos. Forzando reconexión...")
-                    if self.ws:
+                    if self.is_connected():
                         try:
                             self.ws.close()
                         except Exception as e:
@@ -142,32 +147,33 @@ class BinanceWebSocket:
 
     def _scheduled_log_cleanup(self):
         while self.running:
-            limpiar_logs_archivados()
+            self._limpiar_logs_archivados()
             time.sleep(86400)  # cada 24 horas
 
     def get_log_cleanup_count(self):
         return self.log_cleanup_count
 
 
-# Limpieza de logs archivados antiguos (.gz) en logs/archived
-def limpiar_logs_archivados(dias=180):
-    limite = time.time() - dias * 86400  # 180 días por defecto
-    carpeta = "logs/archived"
-    contador = 0
-    if os.path.exists(carpeta):
-        for archivo in os.listdir(carpeta):
-            if archivo.endswith(".gz"):
-                path = os.path.join(carpeta, archivo)
-                if os.path.isfile(path) and os.path.getmtime(path) < limite:
-                    try:
-                        os.remove(path)
-                        contador += 1
-                        if hasattr(ws_logger, "websocket_instance"):
-                            ws_logger.websocket_instance.log_cleanup_count += 1
-                        ws_logger.info(f"[WS-CLEANUP] Archivo eliminado por antigüedad: {archivo}")
-                    except Exception as e:
-                        ws_logger.error(f"[WS-CLEANUP] Error al eliminar {archivo}: {e}")
-    ws_logger.info(f"[WS-CLEANUP] {contador} archivos eliminados con más de {dias} días")
+    # Limpieza de logs archivados antiguos (.gz) en logs/archived
+    def _limpiar_logs_archivados(self, dias=180):
+        limite = time.time() - dias * 86400  # 180 días por defecto
+        carpeta = "logs/archived"
+        contador = 0
+        if os.path.exists(carpeta):
+            for archivo in os.listdir(carpeta):
+                if archivo.endswith(".gz"):
+                    path = os.path.join(carpeta, archivo)
+                    if os.path.isfile(path) and os.path.getmtime(path) < limite:
+                        try:
+                            os.remove(path)
+                            contador += 1
+                            if hasattr(ws_logger, "websocket_instance"):
+                                ws_logger.websocket_instance.log_cleanup_count += 1
+                            ws_logger.info(f"[WS-CLEANUP] Archivo eliminado por antigüedad: {archivo}")
+                        except Exception as e:
+                            ws_logger.error(f"[WS-CLEANUP] Error al eliminar {archivo}: {e}")
+        ws_logger.info(f"[WS-CLEANUP] {contador} archivos eliminados con más de {dias} días")
+    
     async def enviar_a_wsbridge(self, kline):
         import websockets
         try:
@@ -175,3 +181,16 @@ def limpiar_logs_archivados(dias=180):
                 await ws.send(json.dumps(kline))
         except Exception as e:
             ws_logger.error(f"[WS-BRIDGE] Error al enviar a wsbridge: {e}")
+
+    def is_connected(self):
+        return bool(getattr(self.ws, "sock", None) and getattr(self.ws.sock, "connected", False))
+
+    def stop(self):
+        self.running = False
+        if self.ws:
+            try:
+                self.ws.close()
+            except Exception:
+                pass
+        if self.thread:
+            self.thread.join()
