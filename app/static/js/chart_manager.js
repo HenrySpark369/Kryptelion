@@ -1,6 +1,6 @@
 // chart_manager.js
 import { createCandlestickChart, createVolumeChart, updateVolumeChart, updateChartTitle } from './grafico_utils.js';
-import { calculateSMA, reapplySMAs } from './indicadores.js';
+import { calculateSMA, getSMADataset } from './indicadores.js';
 
 export class ChartManager {
   constructor(ctx, volumeCtx, initialSymbol = 'BTCUSDT', initialInterval = '1h') {
@@ -57,21 +57,15 @@ export class ChartManager {
     this.chart.update();
   }
 
-  setSMAs(periods) {
-    this.activeSMAs = periods;
-    reapplySMAs(this.chart, periods);
-  }
-
-  addSMA(period) {
-    if (!this.activeSMAs.includes(period)) {
-      this.activeSMAs.push(period);
-      reapplySMAs(this.chart, this.activeSMAs);
+  addSMASeries(data, period) {
+    const label = `SMA ${period}`;
+    const existing = this.chart.data.datasets.find(ds => ds.label === label);
+    if (!existing) {
+      const index = this.chart.data.datasets.length;
+      const smaDataset = getSMADataset(period, data, index);
+      this.chart.data.datasets.push(smaDataset);
+      this.chart.update();
     }
-  }
-
-  removeSMA(period) {
-    this.activeSMAs = this.activeSMAs.filter(p => p !== period);
-    reapplySMAs(this.chart, this.activeSMAs);
   }
 
   getUltimosPrecios() {
