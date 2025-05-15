@@ -27,44 +27,6 @@ export function calculateSMA(data, period) {
   return result;
 }
 
-export function reapplySMAs(chart, activeSMAs) {
-  const baseData = chart.data.datasets[0].data;
-  const smaList = document.getElementById('smaList');
-  smaList.innerHTML = '<option disabled selected>Indicadores activos</option>';
-
-  // Eliminar todos los datasets excepto el primero (velas)
-  chart.data.datasets = chart.data.datasets.filter((ds, i) => i === 0);
-
-  activeSMAs.forEach((period, index) => {
-    const label = `SMA ${period}`;
-    const existingIndex = chart.data.datasets.findIndex(ds => ds.label === label);
-    const smaData = calculateSMA(baseData, period);
-    const color = smaColorMap[period] || smaColors[index % smaColors.length];
-
-    const smaDataset = {
-      label,
-      data: smaData,
-      type: 'line',
-      borderColor: color,
-      borderWidth: 1.5,
-      fill: false,
-      pointRadius: 0
-    };
-
-    if (existingIndex === -1) {
-      chart.data.datasets.push(smaDataset);
-    } else {
-      chart.data.datasets[existingIndex] = smaDataset;
-    }
-
-    const option = document.createElement('option');
-    option.value = label;
-    option.text = label;
-    smaList.appendChild(option);
-  });
-
-  chart.update('none');  // 'none' para evitar animaciones innecesarias
-}
 
 export function updateLastSmaPoints(chart, activeSMAs) {
   const baseData = chart.data.datasets[0].data;
@@ -110,4 +72,22 @@ export function actualizarSMA(chart, activeSMAs) {
     return;
   }
   updateLastSmaPoints(chart, activeSMAs);
+}
+
+
+export function getSMADataset(period, data, index = 0) {
+  const label = `SMA ${period}`;
+  const color = smaColorMap[period] || smaColors[index % smaColors.length];
+
+  return {
+    label,
+    data,
+    type: 'line',
+    borderColor: color,
+    borderWidth: 1.5,
+    fill: false,
+    pointRadius: 0,
+    tension: 0.1,
+    spanGaps: true
+  };
 }
