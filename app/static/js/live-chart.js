@@ -1,5 +1,5 @@
 // === live-chart-hibrido.js ===
-import { calculateSMA, reapplySMAs, actualizarSMA } from './indicadores.js';
+import { calculateSMA, getSMADataset, actualizarSMA } from './indicadores.js';
 import { fetchHistoricalCandles } from './data_loader.js';
 import { reiniciarStream, cerrarTodosLosSockets } from './ws-handler.js';
 import { loadSavedSMAs, saveSMAs, actualizarResumen } from './session_utils.js';
@@ -21,12 +21,36 @@ let cruceSignals = [];
 async function initializeChart(symbol, interval) {
   cerrarTodosLosSockets();
   chartManager.resetChart();
-  
-  const candles = await fetchHistoricalCandles(symbol, interval);
+
+  const limit = 200;
+  const extra = 200;
+  const allCandles = await fetchHistoricalCandles(symbol, interval, limit, extra);
+
+  // Calcular SMAs con todas las velas
+  const activeSMAs = loadSavedSMAs();
+  const allSMASeries = activeSMAs.map(period => ({
+    period,
+    data: calculateSMA(allCandles, period)
+  }));
+
+  // Recortar datos visibles
+  const visibleCandles = allCandles.slice(-limit);
+
+  // Recortar también cada SMA
+  const visibleSMASeries = allSMASeries.map(serie => ({
+    period: serie.period,
+    data: serie.data.slice(-limit)
+  }));
+
   chartManager.setSymbol(symbol);
   chartManager.setInterval(interval);
-  chartManager.loadData(candles);
-  chartManager.setSMAs(loadSavedSMAs());
+  chartManager.loadData(visibleCandles);
+
+  // Aplicar SMA recortadas
+  visibleSMASeries.forEach(serie => {
+    chartManager.addSMASeries(serie.data, serie.period);
+  });
+
   startLiveStream(symbol, interval);
 }
 
@@ -43,7 +67,21 @@ function startLiveStream(symbol, interval) {
       chartManager.updateWithLiveCandle(candle);
     },
     actualizarSMA: () => {
-      reapplySMAs(chartManager.chart, chartManager.activeSMAs);
+      const baseData = chartManager.chart.data.datasets[0].data;
+      const smas = chartManager.activeSMAs.map((period, index) => {
+        const data = calculateSMA(baseData, period);
+        return getSMADataset(period, data, index);
+      });
+
+      // Eliminar datasets de SMA existentes
+      chartManager.chart.data.datasets = chartManager.chart.data.datasets.filter((ds, i) => i === 0);
+
+      // Agregar los nuevos datasets de SMA
+      smas.forEach(smaDataset => {
+        chartManager.chart.data.datasets.push(smaDataset);
+      });
+
+      chartManager.chart.update();
     },
     analizarEstrategiaBackend: () => evaluarEstrategia({ time: Date.now() }) // usa un mock si no hay vela real
   });
@@ -61,7 +99,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   const currentSymbol = localStorage.getItem('symbol') || 'BTCUSDT';
   const currentInterval = localStorage.getItem('interval') || '15m';
   chartManager = new ChartManager(ctx, volumeCtx, currentSymbol, currentInterval);
-  chartManager.setSMAs(loadSavedSMAs());
 
   // Vincular controles UI
   bindSymbolSelector((symbol) => {
@@ -76,11 +113,17 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   bindSmaControls({
     onAdd: (period) => {
-      chartManager.addSMA(period);
-      saveSMAs(chartManager.activeSMAs);
+      if (!chartManager.activeSMAs.includes(period)) {
+        chartManager.activeSMAs.push(period);
+        const data = calculateSMA(chartManager.chart.data.datasets[0].data, period);
+        chartManager.addSMASeries(data, period);
+        saveSMAs(chartManager.activeSMAs);
+      }
     },
     onRemove: (period) => {
-      chartManager.removeSMA(period);
+      chartManager.activeSMAs = chartManager.activeSMAs.filter(p => p !== period);
+      chartManager.chart.data.datasets = chartManager.chart.data.datasets.filter(ds => ds.label !== `SMA ${period}`);
+      chartManager.chart.update();
       saveSMAs(chartManager.activeSMAs);
     }
   });
