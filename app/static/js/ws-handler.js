@@ -9,6 +9,7 @@ document.addEventListener("click", () => usuarioActivo = true, { once: true });
 
 const WS_URL = "ws://localhost:8765";
 const sockets = {};
+const shouldReconnect = {};
 
 function crearKey(symbol, interval) {
     return `${symbol}_${interval}`;
@@ -21,9 +22,13 @@ function conectarWebSocket(symbol, interval, onMessageHandler, onStatusChange = 
     let intentos = 0;
 
     function intentarConexion() {
-        if (sockets[key] && sockets[key].readyState !== WebSocket.CLOSED) {
-            console.warn(`⚠️ Socket ya abierto para ${key}`);
-            return sockets[key];
+        shouldReconnect[key] = true;
+        if (sockets[key]) {
+            try {
+                sockets[key].close();
+            } catch (e) {
+                console.warn(`⚠️ No se pudo cerrar socket viejo para ${key}`);
+            }
         }
 
         const socket = new WebSocket(`${WS_URL}?symbol=${symbol}&interval=${interval}`);
@@ -55,16 +60,22 @@ function conectarWebSocket(symbol, interval, onMessageHandler, onStatusChange = 
         };
 
         socket.onclose = () => {
-            if (intentos < MAX_REINTENTOS) {
+            if (shouldReconnect[key] && intentos < MAX_REINTENTOS) {
                 const delay = BASE_DELAY * Math.pow(2, intentos);
                 console.warn(`🔌 Socket ${key} cerrado. Reintentando en ${delay / 1000}s...`);
                 intentos += 1;
                 sonidoReintentando.play();
                 onStatusChange('reconnecting');
-                setTimeout(intentarConexion, delay);
+                setTimeout(() => {
+                    if (shouldReconnect[key]) intentarConexion();
+                }, delay);
             } else {
-                console.error(`❌ Se alcanzó el máximo de reintentos para ${key}.`);
-                sonidoFallido.play();
+                if (!shouldReconnect[key]) {
+                    console.warn(`🛑 Reconexión cancelada manualmente para ${key}.`);
+                } else {
+                    console.error(`❌ Se alcanzó el máximo de reintentos para ${key}.`);
+                    sonidoFallido.play();
+                }
                 delete sockets[key];
                 onStatusChange('failed');
             }
@@ -78,6 +89,7 @@ function conectarWebSocket(symbol, interval, onMessageHandler, onStatusChange = 
 function cerrarWebSocket(symbol, interval) {
     const key = crearKey(symbol, interval);
     if (sockets[key]) {
+        shouldReconnect[key] = false;
         sockets[key].close();
         delete sockets[key];
         console.log(`🛑 Socket cerrado manualmente para ${key}`);
@@ -86,6 +98,7 @@ function cerrarWebSocket(symbol, interval) {
 
 function cerrarTodosLosSockets() {
     Object.keys(sockets).forEach(key => {
+        shouldReconnect[key] = false;
         sockets[key].close();
         delete sockets[key];
         console.log(`🛑 Socket cerrado (cerrarTodosLosSockets) para ${key}`);
