@@ -1,7 +1,7 @@
 // === data_loader.js ===
 
-export async function fetchHistoricalCandles(symbol, interval, limit = 75) {
-  const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`;
+export async function fetchHistoricalCandles(symbol, interval, limit = 200, extra = 200) {
+  const url = `https://fapi.binance.com/fapi/v1/klines?symbol=${symbol}&interval=${interval}&limit=${limit+extra}`;
   const res = await fetch(url);
   const klines = await res.json();
 
